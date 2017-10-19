@@ -1,5 +1,6 @@
 package com.example.jack.beepay;
 
+import android.net.Uri;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.design.widget.BottomNavigationView;
@@ -8,7 +9,7 @@ import android.support.v4.app.FragmentTransaction;
 import android.support.v7.app.AppCompatActivity;
 import android.view.MenuItem;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements ProfileFragment.OnFragmentInteractionListener, HistoryFragment.OnFragmentInteractionListener{
 
     private BottomNavigationView.OnNavigationItemSelectedListener mOnNavigationItemSelectedListener
             = new BottomNavigationView.OnNavigationItemSelectedListener() {
@@ -28,7 +29,7 @@ public class MainActivity extends AppCompatActivity {
 
                 case R.id.navigation_profile:
 
-                    Fragment frag2 = nearFragment.newInstance("個人資料","");
+                    Fragment frag2 = ProfileFragment.newInstance("個人資料","");
                     if (frag2 != null) {
                         FragmentTransaction ft = getSupportFragmentManager().beginTransaction();
                         ft.replace(R.id.container, frag2, frag2.getTag());
@@ -38,7 +39,7 @@ public class MainActivity extends AppCompatActivity {
 
                 case R.id.navigation_transactionRecord:
 
-                    Fragment frag3 = nearFragment.newInstance("交易資料","");
+                    Fragment frag3 = HistoryFragment.newInstance("交易資料","");
                     if (frag3 != null) {
                         FragmentTransaction ft = getSupportFragmentManager().beginTransaction();
                         ft.replace(R.id.container, frag3, frag3.getTag());
@@ -67,5 +68,10 @@ public class MainActivity extends AppCompatActivity {
             ft.add(R.id.container, frag, frag.getTag());
             ft.commit();
         }
+    }
+
+    @Override
+    public void onFragmentInteraction(Uri uri) {
+
     }
 }

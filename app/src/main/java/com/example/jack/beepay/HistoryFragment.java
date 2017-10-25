@@ -7,6 +7,12 @@ import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
+import android.widget.BaseAdapter;
+import android.widget.ListAdapter;
+import android.widget.ListView;
+
+import java.util.ArrayList;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -25,6 +31,12 @@ public class HistoryFragment extends Fragment {
     // TODO: Rename and change types of parameters
     private String mParam1;
     private String mParam2;
+
+    public static final String AD_LIST = "AD_LIST";
+
+    private ListView adItemList;
+    private ListAdapter listAdapter;
+    private ArrayList<String> adData;
 
     private OnFragmentInteractionListener mListener;
 
@@ -62,8 +74,17 @@ public class HistoryFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        // Inflate the layout for this fragment
-        return inflater.inflate(R.layout.fragment_history, container, false);
+        View rootView = inflater.inflate(R.layout.fragment_history, container, false);
+
+
+        adData =  new ArrayList<String>();
+        adData = getArguments().getStringArrayList(AD_LIST);
+        adItemList = (ListView) rootView.findViewById(R.id.adItemListID);
+        listAdapter = new ArrayAdapter<String>(getActivity(), android.R.layout.simple_expandable_list_item_1, adData);//ListView使用的Adapter，
+        adItemList.setAdapter(listAdapter);//將listView綁上Adapter
+        ((BaseAdapter) listAdapter).notifyDataSetChanged();//使用notifyDataSetChanger()更新listAdapter的內容
+
+        return rootView;
     }
 
     // TODO: Rename method, update argument and hook method into UI event

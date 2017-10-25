@@ -13,7 +13,7 @@ public class LoginActivity extends AppCompatActivity {
         setContentView(R.layout.activity_login);
     }
 
-    //分別按下搜尋予停止搜尋button時的功能，分別為開始搜尋與停止搜尋
+    //按下登入
     public void btnClick(View view) {
         Intent goMainIntent = new Intent(LoginActivity.this, MainActivity.class);
         startActivity(goMainIntent);

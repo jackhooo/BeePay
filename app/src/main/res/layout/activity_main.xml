@@ -13,7 +13,16 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:background="#f1f1f1"></FrameLayout>
+        android:background="#f1f1f1">
+
+        <ListView
+            android:id="@+id/scanlistID"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:headerDividersEnabled="false"
+            app:layout_constraintBottom_toBottomOf="parent"
+            tools:layout_editor_absoluteX="8dp" />
+    </FrameLayout>
 
     <android.support.design.widget.BottomNavigationView
         android:id="@+id/navigation"

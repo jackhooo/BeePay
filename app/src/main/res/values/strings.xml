@@ -4,6 +4,12 @@
     <string name="title_profile">個人頁面</string>
     <string name="title_transactionRecord">交易紀錄</string>
 
+
+    <string name="No_sup_Bluetooth">Bluetooth is not supported</string>
+    <string name="No_sup_ble">BLE is not supported</string>
+
+
+
     <!-- TODO: Remove or change this placeholder text -->
     <string name="hello_blank_fragment">Hello blank fragment</string>
 </resources>

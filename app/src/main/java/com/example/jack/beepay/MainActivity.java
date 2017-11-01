@@ -5,7 +5,10 @@ import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
@@ -16,6 +19,7 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentTransaction;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.MenuItem;
@@ -26,6 +30,7 @@ import android.widget.BaseAdapter;
 import android.widget.ListAdapter;
 import android.widget.ListView;
 import android.widget.Toast;
+import android.widget.ViewFlipper;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -48,20 +53,27 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
 
     private final static String TAG = MainActivity.class.getSimpleName();
 
-    private ListView scanList;
-
     private static final int MY_PERMISSION_RESPONSE = 42;
 
     private BluetoothManager mBluetoothManager;
     private BluetoothAdapter mBluetoothAdapter;
-    private ArrayList<BluetoothDevice> mBluetoothDevices = new ArrayList<BluetoothDevice>();
 
+    private ArrayList<BluetoothDevice> mBluetoothDevices = new ArrayList<BluetoothDevice>();
     private ArrayList<String> deviceName;
     private ArrayList<String> deviceScanRec;
     private ArrayList<String> devicesMessage;
     private ArrayList<String> adItem;
+
+
+    private ArrayList<String> payment;
+    private ListView paymentList;
+    private ListAdapter paymentListAdapter;
+
     private Device[] devices;
+    private ListView scanList;
     private ListAdapter listAdapter;
+
+
     private Handler mHandler; //該Handler用來搜尋Devices10秒後，自動停止搜尋
 
     //加密法
@@ -75,6 +87,11 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
     private static final int REQUEST_ENABLE_BT = 1;
     private static final int SCAN_TIME = 60000;
     private static final int STOP_TIME = 500;
+
+    Intent ShopModeServiceIntent = null;
+    Intent ConnectServer = null;
+
+    private ViewFlipper mViewFlipper;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -107,6 +124,14 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
         devicesMessage = new ArrayList<>();
         adItem = new ArrayList<String>();
 
+        //商家的paymentlist
+        payment = new ArrayList<String>();
+        paymentList = (ListView) findViewById(R.id.payList);
+        paymentListAdapter = new ArrayAdapter<String>(getBaseContext(), android.R.layout.simple_expandable_list_item_1, payment);//ListView使用的Adapter，
+        paymentList.setAdapter(paymentListAdapter);//將listView綁上Adapter
+        paymentList.setOnItemClickListener(new onPaymentClickListener());
+
+
         //初始化Device
         devices = new Device[10000];
         for (int i = 0; i < 10000; i += 1) {
@@ -118,6 +143,8 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
         listAdapter = new ArrayAdapter<String>(getBaseContext(), android.R.layout.simple_expandable_list_item_1, deviceName);//ListView使用的Adapter，
         scanList.setAdapter(listAdapter);//將listView綁上Adapter
         scanList.setOnItemClickListener(new onItemClickListener()); //綁上OnItemClickListener，設定ListView點擊觸發事件
+
+
         mHandler = new Handler();
 
         // Prompt for permissions
@@ -125,6 +152,17 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
             Log.w("BleActivity", "Location access not granted!");
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, MY_PERMISSION_RESPONSE);
         }
+
+        ShopModeServiceIntent = new Intent(MainActivity.this, AdvertiserService.class);
+
+        //用於連接
+        ConnectServer = new Intent(MainActivity.this, ServerService.class);
+
+        mViewFlipper = (ViewFlipper) this.findViewById(R.id.view_flipper);
+
+        // Register mMessageReceiver to receive messages.
+        LocalBroadcastManager.getInstance(this).registerReceiver(mMessageReceiver,
+                new IntentFilter("my-event"));
 
         try {
             KeyPair loadedKeyPair1 = LoadKeyPair1("RSA");
@@ -138,6 +176,17 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
             return;
         }
     }
+
+    // handler for received Intents for the "my-event" event
+    private BroadcastReceiver mMessageReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            payment.add(intent.getStringExtra("amount"));
+            //Log.i(TAG, payment.toString());
+            ((BaseAdapter) paymentListAdapter).notifyDataSetChanged();//使用notifyDataSetChanger()更新listAdapter的內容
+            //Toast.makeText(MainActivity.this, intent.getStringExtra("amount"), Toast.LENGTH_LONG).show();
+        }
+    };
 
     //此為ScanFunction，輸入函數為boolean，如果true則開始搜尋，false則停止搜尋
     private void ScanFunction(boolean enable) {
@@ -192,7 +241,7 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
                 @Override
                 public void run() {
                     if (!mBluetoothDevices.contains(device)) {//利用contains判斷是否有搜尋到重複的device
-                        mBluetoothDevices.add(device);//如沒重複則添加到bluetoothDevices中
+                        //mBluetoothDevices.add(device);//如沒重複則添加到bluetoothDevices中
 
                         int manufacturerIDStart = 5;
 
@@ -208,6 +257,7 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
                         if (manufacturerID.equals("CS")) {
 
                             Toast.makeText(getBaseContext(), "新CS設備", Toast.LENGTH_SHORT).show();
+                            mBluetoothDevices.add(device);//如沒重複則添加到bluetoothDevices中
 
                             int hexPackageNumStart = 14;
                             int hexPackageMessageStart = 18;
@@ -218,6 +268,8 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
                             int recieveDeviceNum = (packageInt - packageNum) / 10;
 
                             manufacturerID += Integer.toString(recieveDeviceNum);
+
+                            deviceName.add(convertHexToString( bytesToHexString(scanRecord).substring(hexPackageMessageStart,hexPackageMessageStart+44)));
 
                             // Toast.makeText(getBaseContext(),Integer.toString(recieveDeviceNum), Toast.LENGTH_SHORT).show();
 
@@ -270,7 +322,7 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
 
                         deviceScanRec.add(bytesToHexString(scanRecord));
                         devicesMessage.add(manufacturerID + "  " + manufacturerMessage);
-                        deviceName.add(manufacturerID + " rssi:" + rssi + "\r\n" + device.getAddress()); //將device的Name、rssi、address裝到此ArrayList<String>中
+                        //deviceName.add(manufacturerID + " rssi:" + rssi + "\r\n" + device.getAddress()); //將device的Name、rssi、address裝到此ArrayList<String>中
 
                         ((BaseAdapter) listAdapter).notifyDataSetChanged();//使用notifyDataSetChanger()更新listAdapter的內容
                     }
@@ -326,26 +378,85 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
 
     };
 
+    private class onPaymentClickListener implements AdapterView.OnItemClickListener {
+        @Override
+        public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+
+        }
+    }
+
     //以下為ListView ItemClick的Listener，當按下Item時，將該Item的BLE Name與Address包起來，將送到另一
     //Activity中建立連線
     private class onItemClickListener implements AdapterView.OnItemClickListener {
         @Override
         public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+
+            //mBluetoothDevices為一個陣列資料ArrayList<BluetoothDevices>，使用.get(position)取得
+            //Item位置上的BluetoothDevice
+            final BluetoothDevice mBluetoothDevice = mBluetoothDevices.get(position);
+
+            //建立一個Intent，將從此Activity進到ControlActivity中
+            //在ControlActivity中將與BLE Device連線，並互相溝通
+            Intent goControlIntent = new Intent(MainActivity.this, BuyActivity.class);
+
+            //將device Name與address存到ControlActivity的DEVICE_NAME與ADDRESS，以供ControlActivity使用
+
+            if (mBluetoothDevice.getName() == null) {
+                goControlIntent.putExtra(BuyActivity.DEVICE_NAME, mBluetoothDevice.getName());
+            } else {
+                goControlIntent.putExtra(BuyActivity.DEVICE_NAME, mBluetoothDevice.getName() + "  Hex: " + asciiToHex(mBluetoothDevice.getName()));
+            }
+
+            goControlIntent.putExtra(BuyActivity.DEVICE_ADDRESS, mBluetoothDevice.getAddress());
+            goControlIntent.putExtra(BuyActivity.DEVICE_REC, deviceScanRec.get(position));
+            goControlIntent.putExtra(BuyActivity.DEVICE_MESSAGE, devicesMessage.get(position));
+
+            if (mScanningMode == 1) {
+                mBluetoothAdapter.stopLeScan(mLeScanCallback);
+                mScanningMode = 3;
+            }
+
+            startActivity(goControlIntent);
+
         }
     }
 
-    //分別按下搜尋予停止搜尋button時的功能，分別為開始搜尋與停止搜尋
-    public void btnClick(View v) {
-//        switch (v.getId()) {
-//            case R.id.scanbtnID:
-//                ScanFunction(true);
-//                break;
-//            case R.id.stopbtnID:
-//                mScanningMode = 3;
-//                mBluetoothAdapter.stopLeScan(mLeScanCallback);
-//                textView.setText("Stop Scan");
-//                break;
-//        }
+    //按下店家模式button
+    public void shopBtnClick(View v) throws UnsupportedEncodingException {
+
+        String encodeDataToHex = bytesToHexString("Burger".getBytes("utf-8"));
+
+        switch (v.getId()) {
+            case R.id.shopBtn:
+
+                if (mViewFlipper.getCurrentView().getId() == R.id.user) {
+                    mViewFlipper.showNext();
+                }
+
+                //Toast.makeText(getBaseContext(), convertHexToString(encodeDataToHex), Toast.LENGTH_SHORT).show();
+                ShopModeServiceIntent.putExtra(AdvertiserService.INPUT, encodeDataToHex );
+                ShopModeServiceIntent.putExtra(AdvertiserService.DEVICE_NUM, 6 );
+                startService(ShopModeServiceIntent);
+                //For connect
+                startService(ConnectServer);
+
+                break;
+            case R.id.userBtn:
+
+                if (mViewFlipper.getCurrentView().getId() == R.id.shop) {
+                    mViewFlipper.showPrevious();
+                }
+
+                stopService(ShopModeServiceIntent);
+                ShopModeServiceIntent = new Intent(MainActivity.this, AdvertiserService.class);
+                //For connect
+                stopService(ConnectServer);
+                ConnectServer = new Intent(MainActivity.this, ServerService.class);
+                //For connect
+                //startService(ConnectServer);
+
+                break;
+        }
     }
 
     //需要注意的是，需加入一個stopLeScan在onPause()中，當按返回鍵或關閉程式時，需停止搜尋BLE
@@ -355,8 +466,15 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
         super.onPause();
 
         Log.d(TAG, "onPause():Stop Scan");
-        mScanningMode = 3;
-        mBluetoothAdapter.stopLeScan(mLeScanCallback);
+        //mScanningMode = 3;
+        //mBluetoothAdapter.stopLeScan(mLeScanCallback);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // Unregister since the activity is not visible
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(mMessageReceiver);
     }
 
     @Override
@@ -368,6 +486,9 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
             Intent intent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
             startActivityForResult(intent, REQUEST_ENABLE_BT); //再利用startActivityForResult啟動該Intent
         }
+
+        paymentListAdapter = new ArrayAdapter<String>(getBaseContext(), android.R.layout.simple_expandable_list_item_1, payment);//ListView使用的Adapter，
+        paymentList.setAdapter(paymentListAdapter);//將listView綁上Adapter
 
         listAdapter = new ArrayAdapter<String>(getBaseContext(), android.R.layout.simple_expandable_list_item_1, deviceName);//ListView使用的Adapter，
         scanList.setAdapter(listAdapter);//將listView綁上Adapter

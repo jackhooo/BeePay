@@ -49,7 +49,7 @@ import javax.crypto.Cipher;
 
 import static javax.crypto.Cipher.ENCRYPT_MODE;
 
-public class MainActivity extends AppCompatActivity implements ProfileFragment.OnFragmentInteractionListener, HistoryFragment.OnFragmentInteractionListener{
+public class MainActivity extends AppCompatActivity implements ProfileFragment.OnFragmentInteractionListener, HistoryFragment.OnFragmentInteractionListener {
 
     private final static String TAG = MainActivity.class.getSimpleName();
 
@@ -64,15 +64,17 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
     private ArrayList<String> devicesMessage;
     private ArrayList<String> adItem;
 
-
     private ArrayList<String> payment;
     private ListView paymentList;
     private ListAdapter paymentListAdapter;
 
+    private ArrayList<String> confirm;
+    private ListView confirmList;
+    private ListAdapter confirmListAdapter;
+
     private Device[] devices;
     private ListView scanList;
     private ListAdapter listAdapter;
-
 
     private Handler mHandler; //該Handler用來搜尋Devices10秒後，自動停止搜尋
 
@@ -89,9 +91,20 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
     private static final int STOP_TIME = 500;
 
     Intent ShopModeServiceIntent = null;
+    Intent RecieptModeServiceIntent = null;
     Intent ConnectServer = null;
 
     private ViewFlipper mViewFlipper;
+
+
+    Intent WitnessServiceIntent = null;
+    private ArrayList<String> witnessList;
+
+    private int witnessTime = 0;
+    private int witnessCount = 0;
+
+    private ArrayList<String> witnessGetList;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -131,6 +144,13 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
         paymentList.setAdapter(paymentListAdapter);//將listView綁上Adapter
         paymentList.setOnItemClickListener(new onPaymentClickListener());
 
+        //商家的confirmlist
+        confirm = new ArrayList<String>();
+        confirmList = (ListView) findViewById(R.id.confirmList);
+        confirmListAdapter = new ArrayAdapter<String>(getBaseContext(), android.R.layout.simple_expandable_list_item_1, confirm);//ListView使用的Adapter，
+        confirmList.setAdapter(confirmListAdapter);//將listView綁上Adapter
+        confirmList.setOnItemClickListener(new onConfirmClickListener());
+
 
         //初始化Device
         devices = new Device[10000];
@@ -144,21 +164,28 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
         scanList.setAdapter(listAdapter);//將listView綁上Adapter
         scanList.setOnItemClickListener(new onItemClickListener()); //綁上OnItemClickListener，設定ListView點擊觸發事件
 
-
         mHandler = new Handler();
 
         // Prompt for permissions
-        if(ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             Log.w("BleActivity", "Location access not granted!");
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, MY_PERMISSION_RESPONSE);
         }
 
         ShopModeServiceIntent = new Intent(MainActivity.this, AdvertiserService.class);
 
+        RecieptModeServiceIntent = new Intent(MainActivity.this, AdvertiserTwoService.class);
+
         //用於連接
         ConnectServer = new Intent(MainActivity.this, ServerService.class);
 
         mViewFlipper = (ViewFlipper) this.findViewById(R.id.view_flipper);
+
+
+        WitnessServiceIntent = new Intent(MainActivity.this, WitnessAdvertiserService.class);
+        witnessList = new ArrayList<String>();
+
+        witnessGetList = new ArrayList<String>();
 
         // Register mMessageReceiver to receive messages.
         LocalBroadcastManager.getInstance(this).registerReceiver(mMessageReceiver,
@@ -254,63 +281,124 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
                         int messageStart = manufacturerIDStart + 2;
                         String manufacturerMessage = scanMessage.substring(messageStart);
 
-                        if (manufacturerID.equals("CS")) {
+                        Log.i(TAG, manufacturerID );
 
-                            Toast.makeText(getBaseContext(), "新CS設備", Toast.LENGTH_SHORT).show();
+                        //店家名稱廣播
+                        if (manufacturerID.equals("CC")) {
+
                             mBluetoothDevices.add(device);//如沒重複則添加到bluetoothDevices中
 
                             int hexPackageNumStart = 14;
                             int hexPackageMessageStart = 18;
-                            String packageStartMessage = bytesToHexString(scanRecord).substring(hexPackageNumStart,hexPackageNumStart+4);
+                            String packageStartMessage = bytesToHexString(scanRecord).substring(hexPackageNumStart, hexPackageNumStart + 4);
 
-                            int packageInt = Integer.parseInt(packageStartMessage,16);
-                            int packageNum = packageInt%10;
+                            int packageInt = Integer.parseInt(packageStartMessage, 16);
+                            int packageNum = packageInt % 10;
                             int recieveDeviceNum = (packageInt - packageNum) / 10;
 
                             manufacturerID += Integer.toString(recieveDeviceNum);
 
-                            deviceName.add(convertHexToString( bytesToHexString(scanRecord).substring(hexPackageMessageStart,hexPackageMessageStart+44)));
+                            deviceName.add(convertHexToString(bytesToHexString(scanRecord).substring(hexPackageMessageStart, hexPackageMessageStart + 44)));
 
-                            // Toast.makeText(getBaseContext(),Integer.toString(recieveDeviceNum), Toast.LENGTH_SHORT).show();
+                            ((BaseAdapter) listAdapter).notifyDataSetChanged();//使用notifyDataSetChanger()更新listAdapter的內容
+                        }else if (manufacturerID.equals("WW")) {
+                            if( !witnessGetList.contains(device.getAddress()) ) {
+                                witnessGetList.add(device.getAddress());
+                                Log.i(TAG, "收到見證");
+                                Toast.makeText(getBaseContext(), "見證者", Toast.LENGTH_SHORT).show();
+                            }
 
-                            if(packageNum == 1){
-                                devices[recieveDeviceNum].hexMessage1 = bytesToHexString(scanRecord).substring(hexPackageMessageStart,hexPackageMessageStart+44);
+                        }else if (manufacturerID.equals("CS")) {
 
-                                if(devices[recieveDeviceNum].checkIfAllMessageReceive()){
+                            //Toast.makeText(getBaseContext(), "新CS設備", Toast.LENGTH_SHORT).show();
+//                            mBluetoothDevices.add(device);//如沒重複則添加到bluetoothDevices中
+
+                            int hexPackageNumStart = 14;
+                            int hexPackageMessageStart = 18;
+                            String packageStartMessage = bytesToHexString(scanRecord).substring(hexPackageNumStart, hexPackageNumStart + 4);
+
+                            int packageInt = Integer.parseInt(packageStartMessage, 16);
+                            int packageNum = packageInt % 10;
+                            int recieveDeviceNum = (packageInt - packageNum) / 10;
+
+                            manufacturerID += Integer.toString(recieveDeviceNum);
+
+                            //deviceName.add(convertHexToString(bytesToHexString(scanRecord).substring(hexPackageMessageStart, hexPackageMessageStart + 44)));
+
+                            String name = convertHexToString(bytesToHexString(scanRecord).substring(hexPackageMessageStart, hexPackageMessageStart + 6));
+
+                            //Toast.makeText(getBaseContext(), name, Toast.LENGTH_SHORT).show();
+
+                            Log.i(TAG, "S" + name + "s");
+
+                            if (name.equals("Pay") && !payment.contains("送出收據" + device.getAddress())){
+                                payment.add("送出收據" + device.getAddress());
+                            }
+                            else if (name.equals("Con") && !confirm.contains("確認交易" + device.getAddress())){
+                                confirm.add("確認交易" + device.getAddress());
+                            }
+
+
+                            if( !witnessList.contains(device.getAddress()) ) {
+
+                                Log.i(TAG,"見證" );
+
+                                witnessList.add(device.getAddress());
+
+                                witnessTime += 1;
+
+                                stopService(WitnessServiceIntent);
+                                WitnessServiceIntent = new Intent(MainActivity.this, WitnessAdvertiserService.class);
+
+                                String encodeDataToHex = null;
+
+                                try {
+                                    encodeDataToHex = bytesToHexString("witness".getBytes("utf-8"));
+                                } catch (UnsupportedEncodingException e) {
+                                    e.printStackTrace();
+                                }
+
+                                WitnessServiceIntent.putExtra(AdvertiserService.INPUT, encodeDataToHex);
+                                WitnessServiceIntent.putExtra(AdvertiserService.DEVICE_NUM, 6);
+                                startService(WitnessServiceIntent);
+                            }
+
+                            if (packageNum == 1) {
+                                devices[recieveDeviceNum].hexMessage1 = bytesToHexString(scanRecord).substring(hexPackageMessageStart, hexPackageMessageStart + 44);
+
+                                if (devices[recieveDeviceNum].checkIfAllMessageReceive()) {
                                     devices[recieveDeviceNum].setEncodedHex();
                                     try {
-                                        byte[] decode1 = rsaDecode(hexStringToByteArray(devices[recieveDeviceNum].encodedHex),privateKey2);
-                                        byte[] decode2 = rsaDecode(decode1,privateKey1);
+                                        byte[] decode1 = rsaDecode(hexStringToByteArray(devices[recieveDeviceNum].encodedHex), privateKey2);
+                                        byte[] decode2 = rsaDecode(decode1, privateKey1);
                                         adItem.add(Integer.toString(recieveDeviceNum) + " " + new String(decode2, "UTF-8"));
                                     } catch (UnsupportedEncodingException e) {
                                         e.printStackTrace();
                                     }
                                     devices[recieveDeviceNum].cleanMessage();
                                 }
-                            }
-                            else if(packageNum == 2){
-                                devices[recieveDeviceNum].hexMessage2 = bytesToHexString(scanRecord).substring(hexPackageMessageStart,hexPackageMessageStart+44);
+                            } else if (packageNum == 2) {
+                                devices[recieveDeviceNum].hexMessage2 = bytesToHexString(scanRecord).substring(hexPackageMessageStart, hexPackageMessageStart + 44);
 
-                                if(devices[recieveDeviceNum].checkIfAllMessageReceive()){
+                                if (devices[recieveDeviceNum].checkIfAllMessageReceive()) {
                                     devices[recieveDeviceNum].setEncodedHex();
                                     try {
-                                        byte[] decode1 = rsaDecode(hexStringToByteArray(devices[recieveDeviceNum].encodedHex),privateKey2);
-                                        byte[] decode2 = rsaDecode(decode1,privateKey1);
+                                        byte[] decode1 = rsaDecode(hexStringToByteArray(devices[recieveDeviceNum].encodedHex), privateKey2);
+                                        byte[] decode2 = rsaDecode(decode1, privateKey1);
                                         adItem.add(Integer.toString(recieveDeviceNum) + " " + new String(decode2, "UTF-8"));
                                     } catch (UnsupportedEncodingException e) {
                                         e.printStackTrace();
                                     }
                                     devices[recieveDeviceNum].cleanMessage();
                                 }
-                            }
-                            else if(packageNum == 3){
-                                devices[recieveDeviceNum].hexMessage3 = bytesToHexString(scanRecord).substring(hexPackageMessageStart,hexPackageMessageStart+40);
+                            } else if (packageNum == 3) {
+                                devices[recieveDeviceNum].hexMessage3 = bytesToHexString(scanRecord).substring(hexPackageMessageStart, hexPackageMessageStart + 40);
 
-                                if(devices[recieveDeviceNum].checkIfAllMessageReceive()){
+                                if (devices[recieveDeviceNum].checkIfAllMessageReceive()) {
                                     devices[recieveDeviceNum].setEncodedHex();
                                     try {
-                                        byte[] decode1 = rsaDecode(hexStringToByteArray(devices[recieveDeviceNum].encodedHex),privateKey2);
-                                        byte[] decode2 = rsaDecode(decode1,privateKey1);
+                                        byte[] decode1 = rsaDecode(hexStringToByteArray(devices[recieveDeviceNum].encodedHex), privateKey2);
+                                        byte[] decode2 = rsaDecode(decode1, privateKey1);
                                         adItem.add(Integer.toString(recieveDeviceNum) + " " + new String(decode2, "UTF-8"));
                                     } catch (UnsupportedEncodingException e) {
                                         e.printStackTrace();
@@ -324,13 +412,14 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
                         devicesMessage.add(manufacturerID + "  " + manufacturerMessage);
                         //deviceName.add(manufacturerID + " rssi:" + rssi + "\r\n" + device.getAddress()); //將device的Name、rssi、address裝到此ArrayList<String>中
 
+                        ((BaseAdapter) confirmListAdapter).notifyDataSetChanged();//使用notifyDataSetChanger()更新listAdapter的內容
+                        ((BaseAdapter) paymentListAdapter).notifyDataSetChanged();//使用notifyDataSetChanger()更新listAdapter的內容
                         ((BaseAdapter) listAdapter).notifyDataSetChanged();//使用notifyDataSetChanger()更新listAdapter的內容
                     }
                 }
             });
         }
     };
-
 
     private BottomNavigationView.OnNavigationItemSelectedListener mOnNavigationItemSelectedListener
             = new BottomNavigationView.OnNavigationItemSelectedListener() {
@@ -350,7 +439,7 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
                     return true;
 
                 case R.id.navigation_profile:
-                    Fragment frag2 = ProfileFragment.newInstance("個人資料","");
+                    Fragment frag2 = ProfileFragment.newInstance("個人資料", Integer.toString(witnessTime));
                     if (frag2 != null) {
                         FragmentTransaction ft = getSupportFragmentManager().beginTransaction();
                         ft.replace(R.id.container, frag2, frag2.getTag());
@@ -360,8 +449,8 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
                     return true;
 
                 case R.id.navigation_transactionRecord:
-                    Fragment frag3 = HistoryFragment.newInstance("交易資料","");
-                    Bundle bundle=new Bundle();
+                    Fragment frag3 = HistoryFragment.newInstance("交易資料", "");
+                    Bundle bundle = new Bundle();
                     bundle.putStringArrayList(HistoryFragment.AD_LIST, adItem);
                     frag3.setArguments(bundle);
 
@@ -375,13 +464,39 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
             }
             return false;
         }
-
     };
+
+    private class onConfirmClickListener implements AdapterView.OnItemClickListener {
+        @Override
+        public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+        }
+    }
 
     private class onPaymentClickListener implements AdapterView.OnItemClickListener {
         @Override
         public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
 
+
+            mHandler.postDelayed(new Runnable() { //啟動一個Handler，並使用postDelayed在10秒後自動執行此Runnable()
+                @Override
+                public void run() {
+                    stopService(RecieptModeServiceIntent);
+                    RecieptModeServiceIntent = new Intent(MainActivity.this, AdvertiserTwoService.class);
+                }
+            }, 6000); //SCAN_TIME為 1分鐘 後要執行此Runnable
+
+            String encodeDataToHex = "";
+
+            try {
+                encodeDataToHex = bytesToHexString("reciept".getBytes("utf-8"));
+            } catch (UnsupportedEncodingException e) {
+                e.printStackTrace();
+            }
+
+            //Toast.makeText(getBaseContext(), convertHexToString(encodeDataToHex), Toast.LENGTH_SHORT).show();
+            RecieptModeServiceIntent.putExtra(AdvertiserService.INPUT, encodeDataToHex);
+            RecieptModeServiceIntent.putExtra(AdvertiserService.DEVICE_NUM, 6);
+            startService(RecieptModeServiceIntent);
         }
     }
 
@@ -417,7 +532,6 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
             }
 
             startActivity(goControlIntent);
-
         }
     }
 
@@ -434,8 +548,8 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
                 }
 
                 //Toast.makeText(getBaseContext(), convertHexToString(encodeDataToHex), Toast.LENGTH_SHORT).show();
-                ShopModeServiceIntent.putExtra(AdvertiserService.INPUT, encodeDataToHex );
-                ShopModeServiceIntent.putExtra(AdvertiserService.DEVICE_NUM, 6 );
+                ShopModeServiceIntent.putExtra(AdvertiserService.INPUT, encodeDataToHex);
+                ShopModeServiceIntent.putExtra(AdvertiserService.DEVICE_NUM, 6);
                 startService(ShopModeServiceIntent);
                 //For connect
                 startService(ConnectServer);
@@ -475,11 +589,17 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
         super.onDestroy();
         // Unregister since the activity is not visible
         LocalBroadcastManager.getInstance(this).unregisterReceiver(mMessageReceiver);
+
+        stopService(RecieptModeServiceIntent);
+        stopService(ShopModeServiceIntent);
+        stopService(WitnessServiceIntent);
+
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+
         //一般來說，只要使用到mBluetoothAdapter.isEnabled()就可以將BL開啟了，但此部分添加一個Result Intent
         //跳出詢問視窗是否開啟BL，因此該Intent為BluetoothAdapter.ACTION.REQUEST_ENABLE
         if (!mBluetoothAdapter.isEnabled()) {
@@ -563,13 +683,14 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
         return new KeyPair(publicKey, privateKey);
     }
 
-    public byte[] rsaEncode(byte[] plainText,PublicKey publicKey) {
+    public byte[] rsaEncode(byte[] plainText, PublicKey publicKey) {
         Encryption encryption = new Encryption();
         byte[] encryptedResult = "0".getBytes();
         try {
             encryptedResult = encryption.cryptByRSA(plainText, publicKey, ALGORITHM, ENCRYPT_MODE);
         } catch (Exception e) {
-            e.printStackTrace();}
+            e.printStackTrace();
+        }
         return encryptedResult;
     }
 
@@ -579,7 +700,8 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
         try {
             decryptResult = encryption.cryptByRSA(result, privateKey, ALGORITHM, Cipher.DECRYPT_MODE);
         } catch (Exception e) {
-            e.printStackTrace();}
+            e.printStackTrace();
+        }
         return decryptResult;
     }
 

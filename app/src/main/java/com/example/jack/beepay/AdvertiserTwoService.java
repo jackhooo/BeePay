@@ -18,20 +18,13 @@ import android.widget.Toast;
 
 import java.util.concurrent.TimeUnit;
 
-/**
- * Manages BLE Advertising independent of the main app.
- * If the app goes off screen (or gets killed completely) advertising can continue because this
- * Service is maintaining the necessary Callback in memory.
- */
-public class AdvertiserService extends Service {
+public class AdvertiserTwoService extends Service {
 
-    private static final String TAG = AdvertiserService.class.getSimpleName();
+    private static final String TAG = AdvertiserTwoService.class.getSimpleName();
 
     public static final String INPUT = "INPUT";
 
     public static final String DEVICE_NUM = "DEVICE_NUM";
-
-    //public static final byte[] INPUT_BYTE = "0".getBytes();
 
     private static final int FOREGROUND_NOTIFICATION_ID = 1;
 
@@ -61,8 +54,6 @@ public class AdvertiserService extends Service {
 
     private int deviceNum;
 
-    //private byte[] inputByteData;
-
     /**
      * Length of time to allow advertising before automatically shutting off. (10 minutes)
      */
@@ -78,17 +69,10 @@ public class AdvertiserService extends Service {
         Log.v(null, "onStartCommand");
 
         inputData = intent.getStringExtra(INPUT);
-
         deviceNum = intent.getIntExtra(DEVICE_NUM,0);
 
-        //inputByteData = intent.getByteArrayExtra(String.valueOf(INPUT_BYTE));
-
         running = true;
-
         initialize();
-
-        //setUuid();
-
         startAdvertising();
         setTimeout();
 
@@ -126,16 +110,13 @@ public class AdvertiserService extends Service {
             BluetoothManager mBluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
             if (mBluetoothManager != null) {
                 BluetoothAdapter mBluetoothAdapter = mBluetoothManager.getAdapter();
-
-                //gattServer = mBluetoothManager.openGattServer(this,serverCallback);
-
                 if (mBluetoothAdapter != null) {
                     mBluetoothLeAdvertiser = mBluetoothAdapter.getBluetoothLeAdvertiser();
                 } else {
-                    Toast.makeText(AdvertiserService.this, "null", Toast.LENGTH_LONG).show();
+                    Toast.makeText(AdvertiserTwoService.this, "null", Toast.LENGTH_LONG).show();
                 }
             } else {
-                Toast.makeText(AdvertiserService.this, "null", Toast.LENGTH_LONG).show();
+                Toast.makeText(AdvertiserTwoService.this, "null", Toast.LENGTH_LONG).show();
             }
         }
 
@@ -167,17 +148,17 @@ public class AdvertiserService extends Service {
         Log.d(TAG, "Service: Starting Advertising");
 
         if (mAdvertiseCallback == null) {
-
             AdvertiseSettings settings = buildAdvertiseSettings();
             AdvertiseData data = buildAdvertiseData();
             mAdvertiseCallback = new SampleAdvertiseCallback();
 
             if (mBluetoothLeAdvertiser != null) {
-                mBluetoothLeAdvertiser.startAdvertising(settings, data, mAdvertiseCallback);
+                mBluetoothLeAdvertiser.startAdvertising(settings, data,
+                        mAdvertiseCallback);
             }
         }
 
-        Toast.makeText(AdvertiserService.this, "Start AdvertiserService", Toast.LENGTH_LONG).show();
+        //Toast.makeText(AdvertiserTwoService.this, "Start AdvertiserService", Toast.LENGTH_LONG).show();
     }
 
     /**
@@ -203,13 +184,12 @@ public class AdvertiserService extends Service {
      */
     private void stopAdvertising() {
         Log.d(TAG, "Service: Stopping Advertising");
-
         if (mBluetoothLeAdvertiser != null) {
             mBluetoothLeAdvertiser.stopAdvertising(mAdvertiseCallback);
             mAdvertiseCallback = null;
         }
 
-        Toast.makeText(AdvertiserService.this, "Stop AdvertiserService", Toast.LENGTH_LONG).show();
+        //Toast.makeText(AdvertiserTwoService.this, "Stop AdvertiserService", Toast.LENGTH_LONG).show();
     }
 
     /**
@@ -237,34 +217,19 @@ public class AdvertiserService extends Service {
         //dataBuilder.setIncludeDeviceName(true);//設備名稱
         //dataBuilder.addServiceData(Constants.Service_UUID, inputData.getBytes());
 
-        //Hex = 4343, Ascii = CC
-        int manufacturerID = 17219;
-
-        String Hex = "f263575e7b00a977a8e9a37e08b9c215feb9bf";
-
-        //Toast.makeText(AdvertiserService.this, Integer.toString(inputData.length()), Toast.LENGTH_LONG).show();
+        int manufacturerID = 21315;
 
         //dataBuilder.addManufacturerData(manufacturerID, LongData.getBytes());
-        //dataBuilder.addManufacturerData(manufacturerID, inputData.getBytes() );
+
+        //dataBuilder.addManufacturerData(manufacturerID, inputData.getBytes());
 
         byte[] inputHex = hexStringToByteArray(inputData);
-
-        //byte[] inputNum = "1".getBytes();
-
-        //byte[] deviceNumInByte = hexStringToByteArray(String.format("%03x", deviceNum));
-
-        int startMessage = deviceNum * 10 +1;
+        int startMessage = deviceNum * 10 + 2;
         byte[] startMessageByte = hexStringToByteArray(String.format("%04x", startMessage));
         byte[] adMessage = new byte[inputHex.length + startMessageByte.length];
 
         System.arraycopy(startMessageByte, 0, adMessage, 0, startMessageByte.length);
         System.arraycopy(inputHex, 0, adMessage, startMessageByte.length, inputHex.length);
-
-//        System.arraycopy(deviceNumInByte, 0, adMessage, 0, deviceNumInByte.length);
-//        System.arraycopy(inputHex, 0, adMessage, deviceNumInByte.length, inputHex.length);
-//
-//        System.arraycopy(inputNum, 0, adMessage, 0, inputNum.length);
-//        System.arraycopy(inputHex, 0, adMessage, inputNum.length, inputHex.length);
 
         dataBuilder.addManufacturerData(manufacturerID, adMessage);
 
@@ -286,11 +251,9 @@ public class AdvertiserService extends Service {
      * and disable the built-in timeout since this code uses its own timeout runnable.
      */
     private AdvertiseSettings buildAdvertiseSettings() {
-
         AdvertiseSettings.Builder settingsBuilder = new AdvertiseSettings.Builder();
         settingsBuilder.setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_POWER);
         settingsBuilder.setTimeout(0);
-
         return settingsBuilder.build();
     }
 

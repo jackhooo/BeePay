@@ -15,21 +15,29 @@
         <Button
             android:id="@+id/PayButtonID"
             android:layout_width="match_parent"
-            android:layout_height="100dp"
+            android:layout_height="50dp"
             android:layout_marginEnd="8dp"
             android:layout_marginStart="8dp"
             android:layout_marginTop="16dp"
             android:layout_weight="1"
             android:onClick="payBtnClick"
-            android:text="付款"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
+            android:text="付款" />
+
+        <Button
+            android:id="@+id/ConfirmButtonID"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:layout_marginEnd="8dp"
+            android:layout_marginStart="8dp"
+            android:layout_marginTop="16dp"
+            android:layout_weight="1"
+            android:onClick="confirmBtnClick"
+            android:text="已收到收據，請按下以確認交易" />
 
         <ExpandableListView
             android:id="@+id/gatt_services_list"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
+            android:layout_height="100dp"
             android:layout_weight="1"
             tools:layout_editor_absoluteX="8dp"
             tools:layout_editor_absoluteY="0dp">

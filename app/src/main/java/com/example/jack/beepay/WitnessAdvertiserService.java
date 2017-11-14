@@ -18,12 +18,7 @@ import android.widget.Toast;
 
 import java.util.concurrent.TimeUnit;
 
-/**
- * Manages BLE Advertising independent of the main app.
- * If the app goes off screen (or gets killed completely) advertising can continue because this
- * Service is maintaining the necessary Callback in memory.
- */
-public class AdvertiserService extends Service {
+public class WitnessAdvertiserService extends Service {
 
     private static final String TAG = AdvertiserService.class.getSimpleName();
 
@@ -132,10 +127,10 @@ public class AdvertiserService extends Service {
                 if (mBluetoothAdapter != null) {
                     mBluetoothLeAdvertiser = mBluetoothAdapter.getBluetoothLeAdvertiser();
                 } else {
-                    Toast.makeText(AdvertiserService.this, "null", Toast.LENGTH_LONG).show();
+                    Toast.makeText(WitnessAdvertiserService.this, "null", Toast.LENGTH_LONG).show();
                 }
             } else {
-                Toast.makeText(AdvertiserService.this, "null", Toast.LENGTH_LONG).show();
+                Toast.makeText(WitnessAdvertiserService.this, "null", Toast.LENGTH_LONG).show();
             }
         }
 
@@ -170,14 +165,14 @@ public class AdvertiserService extends Service {
 
             AdvertiseSettings settings = buildAdvertiseSettings();
             AdvertiseData data = buildAdvertiseData();
-            mAdvertiseCallback = new SampleAdvertiseCallback();
+            mAdvertiseCallback = new WitnessAdvertiserService.SampleAdvertiseCallback();
 
             if (mBluetoothLeAdvertiser != null) {
                 mBluetoothLeAdvertiser.startAdvertising(settings, data, mAdvertiseCallback);
             }
         }
 
-        Toast.makeText(AdvertiserService.this, "Start AdvertiserService", Toast.LENGTH_LONG).show();
+        //Toast.makeText(WitnessAdvertiserService.this, "傳送見證者封包", Toast.LENGTH_LONG).show();
     }
 
     /**
@@ -209,7 +204,7 @@ public class AdvertiserService extends Service {
             mAdvertiseCallback = null;
         }
 
-        Toast.makeText(AdvertiserService.this, "Stop AdvertiserService", Toast.LENGTH_LONG).show();
+        //Toast.makeText(WitnessAdvertiserService.this, "Stop AdvertiserService", Toast.LENGTH_LONG).show();
     }
 
     /**
@@ -237,8 +232,8 @@ public class AdvertiserService extends Service {
         //dataBuilder.setIncludeDeviceName(true);//設備名稱
         //dataBuilder.addServiceData(Constants.Service_UUID, inputData.getBytes());
 
-        //Hex = 4343, Ascii = CC
-        int manufacturerID = 17219;
+        //Hex = 22359, Ascii = WW
+        int manufacturerID = 22359;
 
         String Hex = "f263575e7b00a977a8e9a37e08b9c215feb9bf";
 

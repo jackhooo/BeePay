@@ -9,6 +9,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
@@ -33,7 +34,6 @@ import android.widget.Toast;
 import android.widget.ViewFlipper;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.security.KeyFactory;
 import java.security.KeyPair;
@@ -44,6 +44,9 @@ import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.GregorianCalendar;
 
 import javax.crypto.Cipher;
 
@@ -150,7 +153,6 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
         confirmListAdapter = new ArrayAdapter<String>(getBaseContext(), android.R.layout.simple_expandable_list_item_1, confirm);//ListView使用的Adapter，
         confirmList.setAdapter(confirmListAdapter);//將listView綁上Adapter
         confirmList.setOnItemClickListener(new onConfirmClickListener());
-
 
         //初始化Device
         devices = new Device[10000];
@@ -535,6 +537,16 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
         }
     }
 
+    public void logoutClick(View view) {
+        SharedPreferences spref = getSharedPreferences(
+                "dada", Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor = spref.edit();
+        editor.clear();
+        editor.commit();
+        Intent goMainIntent = new Intent(MainActivity.this, LoginActivity.class);
+        startActivity(goMainIntent);
+    }
+
     //按下店家模式button
     public void shopBtnClick(View v) throws UnsupportedEncodingException {
 
@@ -556,6 +568,52 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
 
                 break;
             case R.id.userBtn:
+
+               // final byte[] encodeData1 = rsaEncode("1357 2468 1000 2017/5/4".getBytes("UTF-8"),publicKey1);
+
+                // 246 135 1234567 100
+
+                final Calendar date = Calendar.getInstance();
+                Date nowDateTime = date.getTime();
+                final Calendar beginDate = new GregorianCalendar(2000,1,1,0,0,0);
+                Date beginDateTime = beginDate.getTime();
+
+                long time = Math.abs(((nowDateTime.getTime() - beginDateTime.getTime()) / (1000)) - 28800);  //上傳時間
+
+                String data = fillInt(246, 6) + fillInt(135, 6) + fillLong(time,10) + fillInt(100,6);
+
+                final byte[] encodeData1 = rsaEncode(hexStringToByteArray(data),publicKey1);
+                final byte[] encodeData2 = rsaEncode(encodeData1,publicKey2);
+
+                byte[] decode1 = rsaDecode(encodeData2,privateKey2);
+                byte[] decode2 = rsaDecode(decode1,privateKey1);
+
+                String payeeIdHex = bytesToHexString(decode2).substring(0,6);
+                int payeeId = Integer.parseInt(payeeIdHex, 16);
+
+                String sellerIdHex = bytesToHexString(decode2).substring(6,12);
+                int sellerId = Integer.parseInt(sellerIdHex, 16);
+
+                String paymentTimeHex = bytesToHexString(decode2).substring(12,22);
+                long paymentTime = Long.parseLong(paymentTimeHex,16);
+
+                String moneyHex = bytesToHexString(decode2).substring(22);
+                int money = Integer.parseInt(moneyHex, 16);
+
+                Log.i("Code", bytesToHexString(decode2));
+
+                Log.i("Code", payeeIdHex);
+                Log.i("Code", Integer.toString(payeeId));
+
+                Log.i("Code", sellerIdHex);
+                Log.i("Code", Integer.toString(sellerId));
+
+                Log.i("Code", paymentTimeHex);
+                //Log.i("Code", fillLong(time,10));
+                Log.i("Code", Long.toString(paymentTime));
+
+                Log.i("Code", moneyHex);
+                Log.i("Code", Integer.toString(money));
 
                 if (mViewFlipper.getCurrentView().getId() == R.id.shop) {
                     mViewFlipper.showPrevious();
@@ -628,6 +686,24 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
         super.onActivityResult(requestCode, resultCode, data);
     }
 
+    public String fillInt(int uncode, int number){
+        String encode = null;
+        encode = Integer.toHexString(uncode);
+        while (encode.length() < number){
+            encode = "0" + encode;
+        }
+        return encode;
+    }
+
+    public String fillLong(long uncode, int number){
+        String encode = null;
+        encode = Long.toHexString(uncode);
+        while (encode.length() < number){
+            encode = "0" + encode;
+        }
+        return encode;
+    }
+
     @Override
     public void onFragmentInteraction(Uri uri) {
 
@@ -635,17 +711,23 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
 
     public KeyPair LoadKeyPair1(String algorithm) throws IOException, NoSuchAlgorithmException, InvalidKeySpecException {
 
-        InputStream publicFis = getAssets().open("public.key");
-        int publicSize = publicFis.available();
-        byte[] encodedPublicKey = new byte[publicSize];
-        publicFis.read(encodedPublicKey);
-        publicFis.close();
+//        InputStream publicFis = getAssets().open("public.key");
+//        int publicSize = publicFis.available();
+//        byte[] encodedPublicKey = new byte[publicSize];
+//        publicFis.read(encodedPublicKey);
+//        publicFis.close();
+//
+//        InputStream privateFis = getAssets().open("private.key");
+//        int privateSize = privateFis.available();
+//        byte[] encodedPrivateKey = new byte[privateSize];
+//        privateFis.read(encodedPrivateKey);
+//        privateFis.close();
 
-        InputStream privateFis = getAssets().open("private.key");
-        int privateSize = privateFis.available();
-        byte[] encodedPrivateKey = new byte[privateSize];
-        privateFis.read(encodedPrivateKey);
-        privateFis.close();
+        String publicString = "302a300d06092a864886f70d01010105000319003016020f00a461c31e6f8aa88b58c0e6d353730203010001";
+        byte[] encodedPublicKey=hexStringToByteArray(publicString);
+
+        String privateString="306f020100300d06092a864886f70d0101010500045b3059020100020f00a461c31e6f8aa88b58c0e6d353730203010001020e411c22037faddd323462157d3b1d020800e3aa174ea7cde5020800b8d7584a0e4677020749ea8992b20cb902073a5c23901e39b9020800b8f10b432910e6";
+        byte[] encodedPrivateKey=hexStringToByteArray(privateString);
 
         // Generate KeyPair.
         KeyFactory keyFactory = KeyFactory.getInstance(algorithm);
@@ -660,17 +742,23 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
 
     public KeyPair LoadKeyPair2(String algorithm) throws IOException, NoSuchAlgorithmException, InvalidKeySpecException {
 
-        InputStream publicFis = getAssets().open("public2.key");
-        int publicSize = publicFis.available();
-        byte[] encodedPublicKey = new byte[publicSize];
-        publicFis.read(encodedPublicKey);
-        publicFis.close();
+//        InputStream publicFis = getAssets().open("public2.key");
+//        int publicSize = publicFis.available();
+//        byte[] encodedPublicKey = new byte[publicSize];
+//        publicFis.read(encodedPublicKey);
+//        publicFis.close();
+//
+//        InputStream privateFis = getAssets().open("private2.key");
+//        int privateSize = privateFis.available();
+//        byte[] encodedPrivateKey = new byte[privateSize];
+//        privateFis.read(encodedPrivateKey);
+//        privateFis.close();
 
-        InputStream privateFis = getAssets().open("private2.key");
-        int privateSize = privateFis.available();
-        byte[] encodedPrivateKey = new byte[privateSize];
-        privateFis.read(encodedPrivateKey);
-        privateFis.close();
+        String publicString = "302a300d06092a864886f70d01010105000319003016020f00a461c31e6f8aa88b58c0e6d353730203010001";
+        byte[] encodedPublicKey=hexStringToByteArray(publicString);
+
+        String privateString="306f020100300d06092a864886f70d0101010500045b3059020100020f00a461c31e6f8aa88b58c0e6d353730203010001020e411c22037faddd323462157d3b1d020800e3aa174ea7cde5020800b8d7584a0e4677020749ea8992b20cb902073a5c23901e39b9020800b8f10b432910e6";
+        byte[] encodedPrivateKey=hexStringToByteArray(privateString);
 
         // Generate KeyPair.
         KeyFactory keyFactory = KeyFactory.getInstance(algorithm);

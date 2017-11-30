@@ -39,6 +39,7 @@ public class ServerService extends Service {
 
     private static int NOTIFICATION_ID = 0;
 
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -123,10 +124,20 @@ public class ServerService extends Service {
     }
 
     // Send an Intent with an action named "my-event".
-    private void sendMessage() {
+    private void sendMessage(String message) {
         Intent intent = new Intent("my-event");
         // add data
-        intent.putExtra("amount", "300");
+        intent.putExtra("key", message);
+        intent.putExtra("pub", "");
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+    }
+
+    // Send an Intent with an action named "my-event".
+    private void sendPubMessage(String message) {
+        Intent intent = new Intent("my-event");
+        // add data
+        intent.putExtra("key", "");
+        intent.putExtra("pub", message);
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
     }
 
@@ -160,7 +171,14 @@ public class ServerService extends Service {
             super.onCharacteristicWriteRequest(device, requestId, characteristic, preparedWrite, responseNeeded, offset, value);
             byte[] bytes = value;
             String message = new String(bytes);
-            sendMessage();
+            if(CHAR_UUID_YOU_CAN_CHANGE.equals(characteristic.getUuid().toString())){
+                Log.i("GetKey", "aaaa");
+                sendMessage(message);
+            }else if(CHAR2_UUID_YOU_CAN_CHANGE.equals(characteristic.getUuid().toString())){
+                Log.i("GetKey", "bbbb");
+                sendPubMessage(message);
+            }
+
             sendNotification(message);
             gattServer.sendResponse(device, requestId, 0, offset, value);
         }
@@ -168,6 +186,7 @@ public class ServerService extends Service {
         @Override
         public void onDescriptorReadRequest(BluetoothDevice device, int requestId, int offset, BluetoothGattDescriptor descriptor) {
             super.onDescriptorReadRequest(device, requestId, offset, descriptor);
+
         }
 
         @Override
@@ -175,7 +194,7 @@ public class ServerService extends Service {
             super.onDescriptorWriteRequest(device, requestId, descriptor, preparedWrite, responseNeeded, offset, value);
             byte[] bytes = value;
             String message = new String(bytes);
-            sendNotification(message);
+            sendNotification(bytesToHexString(value));
             gattServer.sendResponse(device, requestId, 0, offset, value);
         }
 
@@ -202,6 +221,10 @@ public class ServerService extends Service {
                 (UUID.fromString(CHAR_UUID_YOU_CAN_CHANGE), BluetoothGattDescriptor.PERMISSION_READ);
         descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
 
+        BluetoothGattDescriptor descriptor2 = new BluetoothGattDescriptor
+                (UUID.fromString(CHAR2_UUID_YOU_CAN_CHANGE), BluetoothGattDescriptor.PERMISSION_READ);
+        descriptor2.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+
         //serviceUUIDを設定
         BluetoothGattService service = new BluetoothGattService(
                 UUID.fromString(SERVICE_UUID_YOU_CAN_CHANGE),
@@ -225,7 +248,7 @@ public class ServerService extends Service {
                 BluetoothGattCharacteristic.PERMISSION_READ |
                         BluetoothGattCharacteristic.PERMISSION_WRITE);
 
-        characteristic2.setValue("abc");
+        characteristic2.setValue("");
 
         //characteristicUUIDをserviceUUIDにのせる
         service.addCharacteristic(characteristic);
@@ -250,5 +273,54 @@ public class ServerService extends Service {
             gattServer.close();
             gattServer = null;
         }
+    }
+
+    public static byte[] hexStringToByteArray(String s) {
+        int len = s.length();
+        byte[] data = new byte[len / 2];
+        for (int i = 0; i < len; i += 2) {
+            data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
+                    + Character.digit(s.charAt(i + 1), 16));
+        }
+        return data;
+    }
+
+    public static String bytesToHexString(byte[] bytes) {
+        StringBuilder buffer = new StringBuilder();
+        for (int i = 0; i < bytes.length; i++) {
+            buffer.append(String.format("%02x", bytes[i]));
+        }
+        return buffer.toString();
+    }
+
+    private static String asciiToHex(String asciiValue) {
+        char[] chars = asciiValue.toCharArray();
+        StringBuffer hex = new StringBuffer();
+        for (int i = 0; i < chars.length; i++) {
+            hex.append(Integer.toHexString((int) chars[i]));
+        }
+        return hex.toString();
+    }
+
+    public String convertHexToString(String hex) {
+
+        StringBuilder sb = new StringBuilder();
+        StringBuilder temp = new StringBuilder();
+
+        //49204c6f7665204a617661 split into two characters 49, 20, 4c...
+        for (int i = 0; i < hex.length() - 1; i += 2) {
+
+            //grab the hex in pairs
+            String output = hex.substring(i, (i + 2));
+            //convert hex to decimal
+            int decimal = Integer.parseInt(output, 16);
+            //convert the decimal to character
+            sb.append((char) decimal);
+
+            temp.append(decimal);
+        }
+        System.out.println("Decimal : " + temp.toString());
+
+        return sb.toString();
     }
 }

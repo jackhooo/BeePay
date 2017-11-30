@@ -26,6 +26,13 @@
             android:layout_height="wrap_content"
             android:onClick="logoutClick"
             android:text="登出" />
+
+        <Button
+            android:id="@+id/uploadPackage"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:onClick="uploadPackage"
+            android:text="上傳封包" />
     </LinearLayout>
 
 </FrameLayout>

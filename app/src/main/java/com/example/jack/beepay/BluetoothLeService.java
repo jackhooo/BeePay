@@ -1,7 +1,6 @@
 package com.example.jack.beepay;
 
 import android.app.Service;
-
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
@@ -13,6 +12,7 @@ import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Binder;
 import android.os.IBinder;
 import android.util.Log;
@@ -264,10 +264,23 @@ public class BluetoothLeService extends Service {
 
         if ("0000aaaa-0000-1000-8000-00805f9b34fb".equals(characteristic.getUuid().toString())) {
 
-            characteristic.setValue("300");
+            Log.i("GetKey","aa");
+
+            SharedPreferences spref = getSharedPreferences("dada", Context.MODE_PRIVATE);
+            String myPriv2 = spref.getString("priv2", null);
+            characteristic.setValue(myPriv2);
             mBluetoothGatt.writeCharacteristic(characteristic);
             //setCharacteristicNotification(characteristic,true);
 
+        }else if("0000bbbb-0000-1000-8000-00805f9b34fb".equals(characteristic.getUuid().toString())){
+
+            Log.i("GetKey","bb");
+
+            SharedPreferences spref = getSharedPreferences("dada", Context.MODE_PRIVATE);
+            String myPub1 = spref.getString("pub1", null);
+            characteristic.setValue(myPub1);
+            mBluetoothGatt.writeCharacteristic(characteristic);
+            //setCharacteristicNotification(characteristic,true);
         } else {
             mBluetoothGatt.readCharacteristic(characteristic);
         }
@@ -305,4 +318,6 @@ public class BluetoothLeService extends Service {
 
         return mBluetoothGatt.getServices();
     }
+
+
 }

@@ -44,9 +44,6 @@ import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.GregorianCalendar;
 
 import javax.crypto.Cipher;
 
@@ -63,19 +60,29 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
 
     private ArrayList<BluetoothDevice> mBluetoothDevices = new ArrayList<BluetoothDevice>();
     private ArrayList<String> deviceName;
+    private ArrayList<Integer> IdArray;
     private ArrayList<String> deviceScanRec;
     private ArrayList<String> devicesMessage;
     private ArrayList<String> adItem;
+    private ArrayList<String> ConfirmadItem;
 
     private ArrayList<String> payment;
+    private ArrayList<Integer> paymentId;
+    private ArrayList<String> paymentMessage;
     private ListView paymentList;
     private ListAdapter paymentListAdapter;
 
     private ArrayList<String> confirm;
+    private ArrayList<Integer> confirmId;
+    private ArrayList<String> confirmMessage;
     private ListView confirmList;
     private ListAdapter confirmListAdapter;
 
+    private ArrayList<String> dataToUploadList;
+
     private Device[] devices;
+    private Device[] confirmDevices;
+
     private ListView scanList;
     private ListAdapter listAdapter;
 
@@ -95,19 +102,33 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
 
     Intent ShopModeServiceIntent = null;
     Intent RecieptModeServiceIntent = null;
+    Intent RecieptModeServiceIntent2 = null;
+
     Intent ConnectServer = null;
 
     private ViewFlipper mViewFlipper;
 
 
     Intent WitnessServiceIntent = null;
+    Intent WitnessServiceIntent2 = null;
+
     private ArrayList<String> witnessList;
 
     private int witnessTime = 0;
     private int witnessCount = 0;
 
-    private ArrayList<String> witnessGetList;
+    private int[] witnessNum;
 
+    private int myId;
+    private int otherId;
+
+    private String othersPriv2 = "";
+    private String othersPub1 = "";
+    private String keymessage = "";
+
+    UploadPackage upload;
+
+    private ArrayList<String> witnessGetList;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -139,9 +160,14 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
         deviceName = new ArrayList<String>();   //此ArrayList屬性為String，用來裝Devices Name
         devicesMessage = new ArrayList<>();
         adItem = new ArrayList<String>();
+        ConfirmadItem = new ArrayList<String>();
+        IdArray = new ArrayList<Integer>();
 
         //商家的paymentlist
         payment = new ArrayList<String>();
+        paymentId = new ArrayList<Integer>();
+
+        paymentMessage = new ArrayList<String>();
         paymentList = (ListView) findViewById(R.id.payList);
         paymentListAdapter = new ArrayAdapter<String>(getBaseContext(), android.R.layout.simple_expandable_list_item_1, payment);//ListView使用的Adapter，
         paymentList.setAdapter(paymentListAdapter);//將listView綁上Adapter
@@ -149,17 +175,31 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
 
         //商家的confirmlist
         confirm = new ArrayList<String>();
+        confirmId = new ArrayList<Integer>();
+        confirmMessage = new ArrayList<String>();
+
         confirmList = (ListView) findViewById(R.id.confirmList);
         confirmListAdapter = new ArrayAdapter<String>(getBaseContext(), android.R.layout.simple_expandable_list_item_1, confirm);//ListView使用的Adapter，
         confirmList.setAdapter(confirmListAdapter);//將listView綁上Adapter
         confirmList.setOnItemClickListener(new onConfirmClickListener());
 
+        dataToUploadList = new ArrayList<String>();
+
         //初始化Device
-        devices = new Device[10000];
-        for (int i = 0; i < 10000; i += 1) {
+        devices = new Device[1000];
+        for (int i = 0; i < 1000; i += 1) {
             devices[i] = new Device();
         }
-//        deviceNum = random.nextInt(4095 - 0 + 1) + 0;//random.nextInt(max - min + 1) + min
+
+        confirmDevices = new Device[1000];
+        for (int i = 0; i < 1000; i += 1) {
+            confirmDevices[i] = new Device();
+        }
+
+//        witnessNum = new int[10000000];
+//        for (int i = 0; i < 10000000; i += 1) {
+//            witnessNum[i] = 0;
+//        }
 
         scanList = (ListView) findViewById(R.id.scanlistID);
         listAdapter = new ArrayAdapter<String>(getBaseContext(), android.R.layout.simple_expandable_list_item_1, deviceName);//ListView使用的Adapter，
@@ -177,14 +217,20 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
         ShopModeServiceIntent = new Intent(MainActivity.this, AdvertiserService.class);
 
         RecieptModeServiceIntent = new Intent(MainActivity.this, AdvertiserTwoService.class);
+        RecieptModeServiceIntent2 = new Intent(MainActivity.this, AdvertiserThreeService.class);
 
         //用於連接
         ConnectServer = new Intent(MainActivity.this, ServerService.class);
 
         mViewFlipper = (ViewFlipper) this.findViewById(R.id.view_flipper);
 
+        SharedPreferences spref = getSharedPreferences("dada", Context.MODE_PRIVATE);
+        myId = Integer.parseInt(spref.getString("id", null));
+        otherId = 0;
 
         WitnessServiceIntent = new Intent(MainActivity.this, WitnessAdvertiserService.class);
+        WitnessServiceIntent2 = new Intent(MainActivity.this, WitnessAdvertiserServiceTwo.class);
+
         witnessList = new ArrayList<String>();
 
         witnessGetList = new ArrayList<String>();
@@ -210,12 +256,30 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
     private BroadcastReceiver mMessageReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            payment.add(intent.getStringExtra("amount"));
-            //Log.i(TAG, payment.toString());
-            ((BaseAdapter) paymentListAdapter).notifyDataSetChanged();//使用notifyDataSetChanger()更新listAdapter的內容
+            Log.i("GetKey", intent.getStringExtra("key"));
+
+            if(intent.getStringExtra("key") != ""){
+                othersPriv2 += intent.getStringExtra("key");
+                //Log.i("GetKey", "vv");
+            }
+
+            if(intent.getStringExtra("pub") != ""){
+                othersPub1 += intent.getStringExtra("pub");
+                //Log.i("GetKey", "pp");
+            }
+
+//            if(keymessage.length() < 308){
+//                keymessage += intent.getStringExtra("key");
+//            }else{
+//                othersPub1 = keymessage.substring(0,88);
+//                othersPriv2 = keymessage.substring(88);
+//                Log.i("GetKey", othersPub1);
+//                Log.i("GetKey", othersPriv2);
+//            }
             //Toast.makeText(MainActivity.this, intent.getStringExtra("amount"), Toast.LENGTH_LONG).show();
         }
     };
+
 
     //此為ScanFunction，輸入函數為boolean，如果true則開始搜尋，false則停止搜尋
     private void ScanFunction(boolean enable) {
@@ -293,122 +357,205 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
                             int hexPackageNumStart = 14;
                             int hexPackageMessageStart = 18;
                             String packageStartMessage = bytesToHexString(scanRecord).substring(hexPackageNumStart, hexPackageNumStart + 4);
-
                             int packageInt = Integer.parseInt(packageStartMessage, 16);
                             int packageNum = packageInt % 10;
                             int recieveDeviceNum = (packageInt - packageNum) / 10;
+
+                            IdArray.add(recieveDeviceNum);
+
+                            Log.i("DeviceNum", Integer.toString(recieveDeviceNum));
 
                             manufacturerID += Integer.toString(recieveDeviceNum);
 
                             deviceName.add(convertHexToString(bytesToHexString(scanRecord).substring(hexPackageMessageStart, hexPackageMessageStart + 44)));
 
                             ((BaseAdapter) listAdapter).notifyDataSetChanged();//使用notifyDataSetChanger()更新listAdapter的內容
-                        }else if (manufacturerID.equals("WW")) {
-                            if( !witnessGetList.contains(device.getAddress()) ) {
-                                witnessGetList.add(device.getAddress());
-                                Log.i(TAG, "收到見證");
-                                Toast.makeText(getBaseContext(), "見證者", Toast.LENGTH_SHORT).show();
-                            }
-
-                        }else if (manufacturerID.equals("CS")) {
-
-                            //Toast.makeText(getBaseContext(), "新CS設備", Toast.LENGTH_SHORT).show();
-//                            mBluetoothDevices.add(device);//如沒重複則添加到bluetoothDevices中
+                        }
+//                        else if (manufacturerID.equals("WW")) {
+//                            if( !witnessGetList.contains(device.getAddress()) ) {
+//                                witnessGetList.add(device.getAddress());
+//                                Log.i(TAG, "收到見證");
+//                                //Toast.makeText(getBaseContext(), "見證者", Toast.LENGTH_SHORT).show();
+//                            }
+//                        }
+                        else if (manufacturerID.equals("CS") || manufacturerID.equals("WW")) {
 
                             int hexPackageNumStart = 14;
                             int hexPackageMessageStart = 18;
-                            String packageStartMessage = bytesToHexString(scanRecord).substring(hexPackageNumStart, hexPackageNumStart + 4);
+                            //String packageStartMessage = bytesToHexString(scanRecord).substring(hexPackageNumStart, hexPackageNumStart + 4);
 
-                            int packageInt = Integer.parseInt(packageStartMessage, 16);
-                            int packageNum = packageInt % 10;
-                            int recieveDeviceNum = (packageInt - packageNum) / 10;
+                            //int packageInt = Integer.parseInt(packageStartMessage, 16);
+                            int packageNum = 0;
 
-                            manufacturerID += Integer.toString(recieveDeviceNum);
+                            //int recieveDeviceNum = (packageInt - packageNum) / 10;
+                            //manufacturerID += Integer.toString(recieveDeviceNum);
 
-                            //deviceName.add(convertHexToString(bytesToHexString(scanRecord).substring(hexPackageMessageStart, hexPackageMessageStart + 44)));
+                            String data = bytesToHexString(scanRecord).substring(hexPackageMessageStart, hexPackageMessageStart + 40);
 
-                            String name = convertHexToString(bytesToHexString(scanRecord).substring(hexPackageMessageStart, hexPackageMessageStart + 6));
+                            String payeeIdHex = data.substring(0,6);
+                            int payeeId = Integer.parseInt(payeeIdHex, 16);
 
-                            //Toast.makeText(getBaseContext(), name, Toast.LENGTH_SHORT).show();
+                            String sellerIdHex = data.substring(6,12);
+                            int sellerId = Integer.parseInt(sellerIdHex, 16);
 
-                            Log.i(TAG, "S" + name + "s");
+                            String paymentTimeHex = data.substring(12,22);
+                            long paymentTime = Long.parseLong(paymentTimeHex,16);
 
-                            if (name.equals("Pay") && !payment.contains("送出收據" + device.getAddress())){
-                                payment.add("送出收據" + device.getAddress());
-                            }
-                            else if (name.equals("Con") && !confirm.contains("確認交易" + device.getAddress())){
-                                confirm.add("確認交易" + device.getAddress());
-                            }
+                            String whichData = data.substring(22,24);
+                            int whichDataNum = Integer.parseInt(whichData, 16);
 
+                            String oneOrTwo = data.substring(24,26);
+                            packageNum = Integer.parseInt(oneOrTwo, 16);
 
-                            if( !witnessList.contains(device.getAddress()) ) {
+                            String encodeData = data.substring(26);
 
-                                Log.i(TAG,"見證" );
+                            Log.i("DATaaa",data);
 
-                                witnessList.add(device.getAddress());
-
-                                witnessTime += 1;
-
-                                stopService(WitnessServiceIntent);
-                                WitnessServiceIntent = new Intent(MainActivity.this, WitnessAdvertiserService.class);
-
-                                String encodeDataToHex = null;
-
-                                try {
-                                    encodeDataToHex = bytesToHexString("witness".getBytes("utf-8"));
-                                } catch (UnsupportedEncodingException e) {
-                                    e.printStackTrace();
-                                }
-
-                                WitnessServiceIntent.putExtra(AdvertiserService.INPUT, encodeDataToHex);
-                                WitnessServiceIntent.putExtra(AdvertiserService.DEVICE_NUM, 6);
-                                startService(WitnessServiceIntent);
+                            if(!dataToUploadList.contains(data)){
+                                dataToUploadList.add(data);
+                                store_package_number(data);
                             }
 
-                            if (packageNum == 1) {
-                                devices[recieveDeviceNum].hexMessage1 = bytesToHexString(scanRecord).substring(hexPackageMessageStart, hexPackageMessageStart + 44);
+                            if( manufacturerID.equals("WW") && !witnessGetList.contains(device.getAddress()) ) {
+                                witnessGetList.add(device.getAddress());
+                                Log.i("Witness", "收到見證" + data);
+                                //witnessNum[(int)paymentTime - 562500000] += 1;
+                                //Toast.makeText(getBaseContext(), "見證者", Toast.LENGTH_SHORT).show();
+                            }
 
-                                if (devices[recieveDeviceNum].checkIfAllMessageReceive()) {
-                                    devices[recieveDeviceNum].setEncodedHex();
-                                    try {
-                                        byte[] decode1 = rsaDecode(hexStringToByteArray(devices[recieveDeviceNum].encodedHex), privateKey2);
-                                        byte[] decode2 = rsaDecode(decode1, privateKey1);
-                                        adItem.add(Integer.toString(recieveDeviceNum) + " " + new String(decode2, "UTF-8"));
-                                    } catch (UnsupportedEncodingException e) {
-                                        e.printStackTrace();
+                            if ( sellerId == myId && whichDataNum == 1 && !payment.contains("送出收據" + Integer.toString(payeeId) + " " + Long.toString(paymentTime))){
+
+                                if (packageNum == 1) {
+                                    devices[payeeId].hexMessage1 = encodeData;
+
+                                    if (devices[payeeId].checkIfAllMessageReceive()) {
+                                        devices[payeeId].setEncodedHex();
+                                        try {
+                                            byte[] decode1 = rsaDecode(hexStringToByteArray(devices[payeeId].encodedHex), privateKey2);
+                                            byte[] decode2 = rsaDecode(decode1, privateKey1);
+
+                                            if ( !adItem.contains(bytesToHexString(decode2))) {
+                                                adItem.add(bytesToHexString(decode2));
+                                                if( checkMessage(bytesToHexString(decode2)) ) {
+                                                    paymentId.add(payeeId);
+                                                    paymentMessage.add(bytesToHexString(decode2));
+                                                    payment.add("送出收據" + Integer.toString(payeeId) + " " + Long.toString(paymentTime));
+                                                    Log.i("Payment", bytesToHexString(decode2));
+                                                }
+                                            }
+
+                                        } catch (UnsupportedEncodingException e) {
+                                            e.printStackTrace();
+                                        }
+                                        devices[payeeId].cleanMessage();
                                     }
-                                    devices[recieveDeviceNum].cleanMessage();
+                                } else if (packageNum == 2) {
+                                    devices[payeeId].hexMessage2 = encodeData;
+
+                                    if (devices[payeeId].checkIfAllMessageReceive()) {
+                                        devices[payeeId].setEncodedHex();
+                                        try {
+                                            byte[] decode1 = rsaDecode(hexStringToByteArray(devices[payeeId].encodedHex), privateKey2);
+                                            byte[] decode2 = rsaDecode(decode1, privateKey1);
+
+                                            if ( !adItem.contains(bytesToHexString(decode2))) {
+                                                adItem.add(bytesToHexString(decode2));
+                                                if( checkMessage(bytesToHexString(decode2)) ) {
+                                                    paymentId.add(payeeId);
+                                                    paymentMessage.add(bytesToHexString(decode2));
+                                                    payment.add("送出收據" + Integer.toString(payeeId) + " " + Long.toString(paymentTime));
+                                                    Log.i("Payment", bytesToHexString(decode2));
+                                                }
+                                            }
+
+                                        } catch (UnsupportedEncodingException e) {
+                                            e.printStackTrace();
+                                        }
+                                        devices[payeeId].cleanMessage();
+                                    }
                                 }
-                            } else if (packageNum == 2) {
-                                devices[recieveDeviceNum].hexMessage2 = bytesToHexString(scanRecord).substring(hexPackageMessageStart, hexPackageMessageStart + 44);
+                            }else  if ( sellerId == myId && whichDataNum == 3 && !confirm.contains("確認交易" + Integer.toString(payeeId) + " " + Long.toString(paymentTime))){
 
-                                if (devices[recieveDeviceNum].checkIfAllMessageReceive()) {
-                                    devices[recieveDeviceNum].setEncodedHex();
-                                    try {
-                                        byte[] decode1 = rsaDecode(hexStringToByteArray(devices[recieveDeviceNum].encodedHex), privateKey2);
-                                        byte[] decode2 = rsaDecode(decode1, privateKey1);
-                                        adItem.add(Integer.toString(recieveDeviceNum) + " " + new String(decode2, "UTF-8"));
-                                    } catch (UnsupportedEncodingException e) {
-                                        e.printStackTrace();
+                                if (packageNum == 1) {
+                                    confirmDevices[payeeId].hexMessage1 = encodeData;
+
+                                    if (confirmDevices[payeeId].checkIfAllMessageReceive()) {
+                                        confirmDevices[payeeId].setEncodedHex();
+                                        try {
+                                            byte[] decode1 = rsaDecode(hexStringToByteArray(confirmDevices[payeeId].encodedHex), privateKey2);
+                                            byte[] decode2 = rsaDecode(decode1, privateKey1);
+
+                                            if ( !ConfirmadItem.contains(bytesToHexString(decode2))) {
+                                                ConfirmadItem.add(bytesToHexString(decode2));
+                                                if( checkMessage(bytesToHexString(decode2)) ) {
+                                                    stopService(RecieptModeServiceIntent);
+                                                    stopService(RecieptModeServiceIntent2);
+                                                    confirmId.add(payeeId);
+                                                    confirmMessage.add(bytesToHexString(decode2));
+                                                    confirm.add("確認交易" + Integer.toString(payeeId) + " " + Long.toString(paymentTime));
+                                                    Log.i("Confirm", bytesToHexString(decode2));
+                                                }
+                                            }
+
+                                        } catch (UnsupportedEncodingException e) {
+                                            e.printStackTrace();
+                                        }
+                                        confirmDevices[payeeId].cleanMessage();
                                     }
-                                    devices[recieveDeviceNum].cleanMessage();
+                                } else if (packageNum == 2) {
+                                    confirmDevices[payeeId].hexMessage2 = encodeData;
+
+                                    if (confirmDevices[payeeId].checkIfAllMessageReceive()) {
+                                        confirmDevices[payeeId].setEncodedHex();
+                                        try {
+                                            byte[] decode1 = rsaDecode(hexStringToByteArray(confirmDevices[payeeId].encodedHex), privateKey2);
+                                            byte[] decode2 = rsaDecode(decode1, privateKey1);
+
+                                            if ( !ConfirmadItem.contains(bytesToHexString(decode2))) {
+                                                ConfirmadItem.add(bytesToHexString(decode2));
+                                                if( checkMessage(bytesToHexString(decode2)) ) {
+                                                    stopService(RecieptModeServiceIntent);
+                                                    stopService(RecieptModeServiceIntent2);
+                                                    confirmId.add(payeeId);
+                                                    confirmMessage.add(bytesToHexString(decode2));
+                                                    confirm.add("確認交易" + Integer.toString(payeeId) + " " + Long.toString(paymentTime));
+                                                    Log.i("Confirm", bytesToHexString(decode2));
+                                                }
+                                            }
+
+                                        } catch (UnsupportedEncodingException e) {
+                                            e.printStackTrace();
+                                        }
+                                        confirmDevices[payeeId].cleanMessage();
+                                    }
                                 }
-                            } else if (packageNum == 3) {
-                                devices[recieveDeviceNum].hexMessage3 = bytesToHexString(scanRecord).substring(hexPackageMessageStart, hexPackageMessageStart + 40);
+                            }
 
-                                if (devices[recieveDeviceNum].checkIfAllMessageReceive()) {
-                                    devices[recieveDeviceNum].setEncodedHex();
-                                    try {
-                                        byte[] decode1 = rsaDecode(hexStringToByteArray(devices[recieveDeviceNum].encodedHex), privateKey2);
-                                        byte[] decode2 = rsaDecode(decode1, privateKey1);
-                                        adItem.add(Integer.toString(recieveDeviceNum) + " " + new String(decode2, "UTF-8"));
-                                    } catch (UnsupportedEncodingException e) {
-                                        e.printStackTrace();
+                            if( !witnessList.contains(data) ) {
+                                if(payeeId != myId && sellerId != myId) {
+                                    if (packageNum == 1) {
+                                        Log.i(TAG, "見證");
+                                        witnessList.add(data);
+                                        witnessTime += 1;
+                                        stopService(WitnessServiceIntent);
+                                        WitnessServiceIntent = new Intent(MainActivity.this, WitnessAdvertiserService.class);
+                                        WitnessServiceIntent.putExtra(WitnessAdvertiserService.INPUT, data);
+                                        WitnessServiceIntent.putExtra(WitnessAdvertiserService.DEVICE_NUM, myId);
+                                        startService(WitnessServiceIntent);
+                                    } else if (packageNum == 2) {
+                                        Log.i(TAG, "見證");
+                                        witnessList.add(data);
+                                        witnessTime += 1;
+                                        stopService(WitnessServiceIntent2);
+                                        WitnessServiceIntent2 = new Intent(MainActivity.this, WitnessAdvertiserServiceTwo.class);
+                                        WitnessServiceIntent2.putExtra(WitnessAdvertiserServiceTwo.INPUT, data);
+                                        WitnessServiceIntent2.putExtra(WitnessAdvertiserServiceTwo.DEVICE_NUM, myId);
+                                        startService(WitnessServiceIntent2);
                                     }
-                                    devices[recieveDeviceNum].cleanMessage();
                                 }
                             }
                         }
+
 
                         deviceScanRec.add(bytesToHexString(scanRecord));
                         devicesMessage.add(manufacturerID + "  " + manufacturerMessage);
@@ -422,6 +569,29 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
             });
         }
     };
+
+    private boolean checkMessage(String data){
+
+        Boolean result = false;
+
+        String payeeIdHex = data.substring(0,6);
+        int payeeId = Integer.parseInt(payeeIdHex, 16);
+
+        String sellerIdHex = data.substring(6,12);
+        int sellerId = Integer.parseInt(sellerIdHex, 16);
+
+        String paymentTimeHex = data.substring(12,22);
+        long paymentTime = Long.parseLong(paymentTimeHex,16);
+
+        String money = data.substring(22);
+        int moneyNum = Integer.parseInt(money, 16);
+
+        if ( sellerId == myId ){
+            result = true;
+        }
+
+        return  result;
+    }
 
     private BottomNavigationView.OnNavigationItemSelectedListener mOnNavigationItemSelectedListener
             = new BottomNavigationView.OnNavigationItemSelectedListener() {
@@ -453,7 +623,7 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
                 case R.id.navigation_transactionRecord:
                     Fragment frag3 = HistoryFragment.newInstance("交易資料", "");
                     Bundle bundle = new Bundle();
-                    bundle.putStringArrayList(HistoryFragment.AD_LIST, adItem);
+                    bundle.putStringArrayList(HistoryFragment.AD_LIST, confirm);
                     frag3.setArguments(bundle);
 
                     if (frag3 != null) {
@@ -478,27 +648,41 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
         @Override
         public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
 
+            String data = paymentMessage.get(position);
 
-            mHandler.postDelayed(new Runnable() { //啟動一個Handler，並使用postDelayed在10秒後自動執行此Runnable()
-                @Override
-                public void run() {
-                    stopService(RecieptModeServiceIntent);
-                    RecieptModeServiceIntent = new Intent(MainActivity.this, AdvertiserTwoService.class);
-                }
-            }, 6000); //SCAN_TIME為 1分鐘 後要執行此Runnable
+            String payeeIdHex = data.substring(0,6);
+            int payeeId = Integer.parseInt(payeeIdHex, 16);
 
-            String encodeDataToHex = "";
+            String sellerIdHex = data.substring(6,12);
+            int sellerId = Integer.parseInt(sellerIdHex, 16);
 
-            try {
-                encodeDataToHex = bytesToHexString("reciept".getBytes("utf-8"));
-            } catch (UnsupportedEncodingException e) {
-                e.printStackTrace();
-            }
+            String paymentTimeHex = data.substring(12,22);
+            long paymentTime = Long.parseLong(paymentTimeHex,16);
 
-            //Toast.makeText(getBaseContext(), convertHexToString(encodeDataToHex), Toast.LENGTH_SHORT).show();
-            RecieptModeServiceIntent.putExtra(AdvertiserService.INPUT, encodeDataToHex);
-            RecieptModeServiceIntent.putExtra(AdvertiserService.DEVICE_NUM, 6);
+            String money = data.substring(22);
+            int moneyNum = Integer.parseInt(money, 16);
+
+            //Show witness
+            //Toast.makeText(getBaseContext(), Integer.toString(witnessNum[(int)paymentTime - 562500000]), Toast.LENGTH_SHORT).show();
+
+            String notEncodeData1 = fillInt(paymentId.get(position), 6) + fillInt(myId, 6) + fillLong(paymentTime,10) + fillInt(2,2) + fillInt(1,2);
+            String notEncodeData2 = fillInt(paymentId.get(position), 6) + fillInt(myId, 6) + fillLong(paymentTime,10) + fillInt(2,2) + fillInt(2,2);
+
+            final byte[] encodeData1 = rsaEncode(hexStringToByteArray(data),publicKey1);
+            final byte[] encodeData2 = rsaEncode(encodeData1,publicKey2);
+
+            String ADData1 = notEncodeData1 + bytesToHexString(encodeData2).substring(0,14);
+
+            String ADData2 = notEncodeData2 + bytesToHexString(encodeData2).substring(14);
+
+            RecieptModeServiceIntent.putExtra(AdvertiserService.INPUT, ADData1);
+            RecieptModeServiceIntent.putExtra(AdvertiserService.DEVICE_NUM, myId);
             startService(RecieptModeServiceIntent);
+
+            RecieptModeServiceIntent2.putExtra(AdvertiserService.INPUT, ADData2);
+            RecieptModeServiceIntent2.putExtra(AdvertiserService.DEVICE_NUM, myId);
+            startService(RecieptModeServiceIntent2);
+
         }
     }
 
@@ -518,15 +702,17 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
 
             //將device Name與address存到ControlActivity的DEVICE_NAME與ADDRESS，以供ControlActivity使用
 
-            if (mBluetoothDevice.getName() == null) {
-                goControlIntent.putExtra(BuyActivity.DEVICE_NAME, mBluetoothDevice.getName());
-            } else {
-                goControlIntent.putExtra(BuyActivity.DEVICE_NAME, mBluetoothDevice.getName() + "  Hex: " + asciiToHex(mBluetoothDevice.getName()));
-            }
+//            if (mBluetoothDevice.getName() == null) {
+//                goControlIntent.putExtra(BuyActivity.DEVICE_NAME, mBluetoothDevice.getName());
+//            } else {
+//                goControlIntent.putExtra(BuyActivity.DEVICE_NAME, mBluetoothDevice.getName() + "  Hex: " + asciiToHex(mBluetoothDevice.getName()));
+//            }
 
+            goControlIntent.putExtra(BuyActivity.DEVICE_NAME, deviceName.get(position));
             goControlIntent.putExtra(BuyActivity.DEVICE_ADDRESS, mBluetoothDevice.getAddress());
             goControlIntent.putExtra(BuyActivity.DEVICE_REC, deviceScanRec.get(position));
             goControlIntent.putExtra(BuyActivity.DEVICE_MESSAGE, devicesMessage.get(position));
+            goControlIntent.putExtra(BuyActivity.DEVICE_NUM, IdArray.get(position));
 
             if (mScanningMode == 1) {
                 mBluetoothAdapter.stopLeScan(mLeScanCallback);
@@ -547,10 +733,26 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
         startActivity(goMainIntent);
     }
 
+    public void uploadPackage(View view){
+
+        SharedPreferences spref = getSharedPreferences("dada", Context.MODE_PRIVATE);
+
+        Log.i("pack", ""+spref.getInt("countpackage",0));
+        Log.i("pack", spref.getString("countid",null));
+
+        Log.i("pack", spref.getString("0",null));
+        Log.i("pack", spref.getString("1",null));
+
+        upload_package();
+    }
+
     //按下店家模式button
     public void shopBtnClick(View v) throws UnsupportedEncodingException {
 
-        String encodeDataToHex = bytesToHexString("Burger".getBytes("utf-8"));
+        SharedPreferences spref = getSharedPreferences("dada", Context.MODE_PRIVATE);
+        String myEmail = spref.getString("email",null);
+
+        String encodeDataToHex = bytesToHexString(myEmail.getBytes("utf-8"));
 
         switch (v.getId()) {
             case R.id.shopBtn:
@@ -561,59 +763,13 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
 
                 //Toast.makeText(getBaseContext(), convertHexToString(encodeDataToHex), Toast.LENGTH_SHORT).show();
                 ShopModeServiceIntent.putExtra(AdvertiserService.INPUT, encodeDataToHex);
-                ShopModeServiceIntent.putExtra(AdvertiserService.DEVICE_NUM, 6);
+                ShopModeServiceIntent.putExtra(AdvertiserService.DEVICE_NUM, myId);
                 startService(ShopModeServiceIntent);
                 //For connect
                 startService(ConnectServer);
 
                 break;
             case R.id.userBtn:
-
-               // final byte[] encodeData1 = rsaEncode("1357 2468 1000 2017/5/4".getBytes("UTF-8"),publicKey1);
-
-                // 246 135 1234567 100
-
-                final Calendar date = Calendar.getInstance();
-                Date nowDateTime = date.getTime();
-                final Calendar beginDate = new GregorianCalendar(2000,1,1,0,0,0);
-                Date beginDateTime = beginDate.getTime();
-
-                long time = Math.abs(((nowDateTime.getTime() - beginDateTime.getTime()) / (1000)) - 28800);  //上傳時間
-
-                String data = fillInt(246, 6) + fillInt(135, 6) + fillLong(time,10) + fillInt(100,6);
-
-                final byte[] encodeData1 = rsaEncode(hexStringToByteArray(data),publicKey1);
-                final byte[] encodeData2 = rsaEncode(encodeData1,publicKey2);
-
-                byte[] decode1 = rsaDecode(encodeData2,privateKey2);
-                byte[] decode2 = rsaDecode(decode1,privateKey1);
-
-                String payeeIdHex = bytesToHexString(decode2).substring(0,6);
-                int payeeId = Integer.parseInt(payeeIdHex, 16);
-
-                String sellerIdHex = bytesToHexString(decode2).substring(6,12);
-                int sellerId = Integer.parseInt(sellerIdHex, 16);
-
-                String paymentTimeHex = bytesToHexString(decode2).substring(12,22);
-                long paymentTime = Long.parseLong(paymentTimeHex,16);
-
-                String moneyHex = bytesToHexString(decode2).substring(22);
-                int money = Integer.parseInt(moneyHex, 16);
-
-                Log.i("Code", bytesToHexString(decode2));
-
-                Log.i("Code", payeeIdHex);
-                Log.i("Code", Integer.toString(payeeId));
-
-                Log.i("Code", sellerIdHex);
-                Log.i("Code", Integer.toString(sellerId));
-
-                Log.i("Code", paymentTimeHex);
-                //Log.i("Code", fillLong(time,10));
-                Log.i("Code", Long.toString(paymentTime));
-
-                Log.i("Code", moneyHex);
-                Log.i("Code", Integer.toString(money));
 
                 if (mViewFlipper.getCurrentView().getId() == R.id.shop) {
                     mViewFlipper.showPrevious();
@@ -649,9 +805,10 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
         LocalBroadcastManager.getInstance(this).unregisterReceiver(mMessageReceiver);
 
         stopService(RecieptModeServiceIntent);
+        stopService(RecieptModeServiceIntent2);
         stopService(ShopModeServiceIntent);
         stopService(WitnessServiceIntent);
-
+        stopService(WitnessServiceIntent2);
     }
 
     @Override
@@ -684,6 +841,44 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
             return;
         }
         super.onActivityResult(requestCode, resultCode, data);
+    }
+
+    public void store_package_number(String Package){
+        //這裡的packge需為明碼和加密一起傳進來,共20bytes;
+        SharedPreferences spref = getSharedPreferences(
+                "dada", Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor = spref.edit();
+        editor.putString(spref.getString("countid",null),Package);
+        int temp=spref.getInt("countpackage",0)+1;
+        editor.commit();
+        editor.putString("countid",Integer.toString(temp));
+        editor.putInt("countpackage",temp);
+        editor.commit();
+    }
+
+    public void upload_package(){
+        SharedPreferences spref = getSharedPreferences(
+                "dada", Context.MODE_PRIVATE);
+        upload=new UploadPackage();
+        for(int i=spref.getInt("whichload",0);i<spref.getInt("countpackage",0);i++){
+            String temp=Integer.toString(i);
+            String temp_package=spref.getString(temp,null);
+            String cut_tran_data=temp_package.substring(26,40);
+            String cut_open_data=temp_package.substring(0,26);
+            String upload_id=spref.getString("id",null);
+            String user_id=spref.getString("id",null);
+            int usrid=Integer.parseInt(user_id,16);
+            user_id=fillInt(usrid,6);
+            Log.i("pack", user_id);
+            Log.i("pack", cut_open_data);
+            Log.i("pack", cut_tran_data);
+            upload.upload("http://140.119.163.23:8080/BLE_Transaction/services/TransactionApi?transactiondata="+cut_tran_data+"&opendata="+cut_open_data+"&echonum=1&uploader="+user_id);
+
+        }
+        SharedPreferences.Editor editor = spref.edit();
+        editor.putInt("whichload",spref.getInt("countpackage",0));
+        editor.commit();
+
     }
 
     public String fillInt(int uncode, int number){

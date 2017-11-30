@@ -48,7 +48,7 @@ public class connect {
                     pub2 = (String) new JSONObject(mJsonText).get("publickey2");
                     pri2 = (String) new JSONObject(mJsonText).get("privatekey2");
                     check = (String) new JSONObject(mJsonText).get("check");
-//                    id = (String) new JSONObject(mJsonText).get("id");
+                    id = new JSONObject(mJsonText).get("id").toString();
                     Log.d("test",check);
                     Log.d("Response of login request", mJsonText);
 

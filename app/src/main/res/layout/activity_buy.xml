@@ -34,6 +34,15 @@
             android:onClick="confirmBtnClick"
             android:text="已收到收據，請按下以確認交易" />
 
+        <TextView
+            android:id="@+id/witnessNumId"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="0"
+            android:textAlignment="center"
+            android:textSize="30sp" />
+
         <ExpandableListView
             android:id="@+id/gatt_services_list"
             android:layout_width="match_parent"

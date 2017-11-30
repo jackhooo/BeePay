@@ -11,6 +11,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -21,10 +22,10 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.ExpandableListView;
 import android.widget.SimpleExpandableListAdapter;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.security.KeyFactory;
 import java.security.KeyPair;
@@ -35,6 +36,9 @@ import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.List;
 
@@ -50,27 +54,44 @@ public class BuyActivity extends AppCompatActivity {
     public static final String DEVICE_ADDRESS = "DEVICE_ADDRESS";
     public static final String DEVICE_REC = "DEVICE_REC";
     public static final String DEVICE_MESSAGE = "DEVICE_MESSAGE";
+    public static final String DEVICE_NUM = "DEVICE_NUM";
 
     private String mDeviceName;
     private String mDeviceAddress;
     private String mDeviceRec;
     private String mDeviceMessage;
+    private int sellerDeviceNum;
+    private int myId;
+
+    private byte[] confirmEncodeData;
+    private Long confirmTime;
+
+    private ArrayList<String> dataToUploadList;
 
     private Button payButton;
     private Button confirmButton;
+
+    private TextView witnessNumText;
+    private int witnessCount = 0;
+
 
     private ExpandableListView mGattServicesList;
     private BluetoothLeService mBluetoothLeService;
     private ArrayList<ArrayList<BluetoothGattCharacteristic>> mGattCharacteristics = new ArrayList<ArrayList<BluetoothGattCharacteristic>>();
     private boolean mConnected = false;
     private BluetoothGattCharacteristic mNotifyCharacteristic;
+    private BluetoothGattCharacteristic mmNotifyCharacteristic;
+
 
     private final String LIST_NAME = "NAME";
     private final String LIST_UUID = "UUID";
 
 
     Intent PayModeServiceIntent = null;
+    Intent PayModeServiceIntent2 = null;
+
     Intent ConfirmModeServiceIntent = null;
+    Intent ConfirmModeServiceIntent2 = null;
 
 
     //////////////////////////////////// //掃描
@@ -103,18 +124,32 @@ public class BuyActivity extends AppCompatActivity {
 
     //////////////////////////////////// //掃描
 
+    private boolean booleankeyIsSend = false;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_buy);
-        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-        getSupportActionBar().setTitle("Burger");  // provide compatibility to all the versions
+
 
         final Intent intent = getIntent();
         mDeviceName = intent.getStringExtra(DEVICE_NAME);
         mDeviceAddress = intent.getStringExtra(DEVICE_ADDRESS);
         mDeviceRec = intent.getStringExtra(DEVICE_REC);
         mDeviceMessage = intent.getStringExtra(DEVICE_MESSAGE);
+
+        dataToUploadList = new ArrayList<String>();
+
+        sellerDeviceNum = intent.getIntExtra(DEVICE_NUM, 0);
+        SharedPreferences spref = getSharedPreferences("dada", Context.MODE_PRIVATE);
+        myId = Integer.parseInt(spref.getString("id", null));
+
+        Log.i("SellerNum", Integer.toString(sellerDeviceNum));
+
+        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+        getSupportActionBar().setTitle(mDeviceName);  // provide compatibility to all the versions
+
+        witnessNumText = (TextView) findViewById(R.id.witnessNumId);
 
         mGattServicesList = (ExpandableListView) findViewById(R.id.gatt_services_list);
         mGattServicesList.setOnChildClickListener(servicesListClickListner);
@@ -130,7 +165,9 @@ public class BuyActivity extends AppCompatActivity {
         bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
 
         PayModeServiceIntent = new Intent(BuyActivity.this, AdvertiserTwoService.class);
-        ConfirmModeServiceIntent = new Intent(BuyActivity.this, AdvertiserThreeService.class);
+        PayModeServiceIntent2 = new Intent(BuyActivity.this, AdvertiserThreeService.class);
+        ConfirmModeServiceIntent = new Intent(BuyActivity.this, AdvertiserTwoService.class);
+        ConfirmModeServiceIntent2 = new Intent(BuyActivity.this, AdvertiserThreeService.class);
 
         //////////////////////////////////// //掃描
 
@@ -280,6 +317,46 @@ public class BuyActivity extends AppCompatActivity {
                 }
             };
 
+    private void sendKey() {
+        if (mNotifyCharacteristic != null) {
+            final BluetoothGattCharacteristic characteristic = mNotifyCharacteristic;
+            //Toast.makeText(BuyActivity.this, characteristic.getUuid().toString() , Toast.LENGTH_LONG).show();
+            final int charaProp = characteristic.getProperties();
+            if ((charaProp | BluetoothGattCharacteristic.PROPERTY_READ) > 0) {
+                // If there is an active notification on a characteristic, clear
+                // it first so it doesn't update the data field on the user interface.
+                if (characteristic != null) {
+                    mBluetoothLeService.setCharacteristicNotification(characteristic, false);
+                }
+                mBluetoothLeService.readCharacteristic(characteristic);
+            }
+            if ((charaProp | BluetoothGattCharacteristic.PROPERTY_NOTIFY) > 0) {
+                mNotifyCharacteristic = characteristic;
+                mBluetoothLeService.setCharacteristicNotification(characteristic, true);
+            }
+
+            mNotifyCharacteristic = null;
+        }else if (mmNotifyCharacteristic != null) {
+            final BluetoothGattCharacteristic characteristic = mmNotifyCharacteristic;
+            //Toast.makeText(BuyActivity.this, characteristic.getUuid().toString() , Toast.LENGTH_LONG).show();
+            final int charaProp = characteristic.getProperties();
+            if ((charaProp | BluetoothGattCharacteristic.PROPERTY_READ) > 0) {
+                // If there is an active notification on a characteristic, clear
+                // it first so it doesn't update the data field on the user interface.
+                if (characteristic != null) {
+                    mBluetoothLeService.setCharacteristicNotification(characteristic, false);
+                }
+                mBluetoothLeService.readCharacteristic(characteristic);
+            }
+            if ((charaProp | BluetoothGattCharacteristic.PROPERTY_NOTIFY) > 0) {
+                mmNotifyCharacteristic = characteristic;
+                mBluetoothLeService.setCharacteristicNotification(characteristic, true);
+            }
+
+            mmNotifyCharacteristic = null;
+        }
+    }
+
     //按下付款
     public void payBtnClick(View v) throws UnsupportedEncodingException {
 
@@ -291,6 +368,24 @@ public class BuyActivity extends AppCompatActivity {
 //            }
 //        }, 6000); //SCAN_TIME為 1分鐘 後要執行此Runnable
 
+        final Calendar date = Calendar.getInstance();
+        Date nowDateTime = date.getTime();
+        final Calendar beginDate = new GregorianCalendar(2000, 1, 1, 0, 0, 0);
+        Date beginDateTime = beginDate.getTime();
+        long time = Math.abs(((nowDateTime.getTime() - beginDateTime.getTime()) / (1000)) - 28800);  //上傳時間
+
+        String notEncodeData1 = fillInt(myId, 6) + fillInt(sellerDeviceNum, 6) + fillLong(time, 10) + fillInt(1, 2) + fillInt(1, 2);
+        String notEncodeData2 = fillInt(myId, 6) + fillInt(sellerDeviceNum, 6) + fillLong(time, 10) + fillInt(1, 2) + fillInt(2, 2);
+        String data = fillInt(myId, 6) + fillInt(sellerDeviceNum, 6) + fillLong(time, 10) + fillInt(100, 6);
+
+        final byte[] encodeData1 = rsaEncode(hexStringToByteArray(data), publicKey1);
+        final byte[] encodeData2 = rsaEncode(encodeData1, publicKey2);
+
+        confirmEncodeData = encodeData2;
+        confirmTime = time;
+
+        String ADData1 = notEncodeData1 + bytesToHexString(encodeData2).substring(0, 14);
+        String ADData2 = notEncodeData2 + bytesToHexString(encodeData2).substring(14);
 
         //Already pay
         payButton.setEnabled(false);
@@ -298,56 +393,47 @@ public class BuyActivity extends AppCompatActivity {
         mBluetoothLeService.disconnect();
         //unregisterReceiver(mGattUpdateReceiver);
 
-        String encodeDataToHex = bytesToHexString("Pay".getBytes("utf-8"));
-
         //Toast.makeText(getBaseContext(), convertHexToString(encodeDataToHex), Toast.LENGTH_SHORT).show();
-        PayModeServiceIntent.putExtra(AdvertiserService.INPUT, encodeDataToHex);
-        PayModeServiceIntent.putExtra(AdvertiserService.DEVICE_NUM, 6);
+        PayModeServiceIntent.putExtra(AdvertiserService.INPUT, ADData1);
+        PayModeServiceIntent.putExtra(AdvertiserService.DEVICE_NUM, myId);
         startService(PayModeServiceIntent);
 
-
-
-//        if (mNotifyCharacteristic != null) {
-//
-//            final BluetoothGattCharacteristic characteristic = mNotifyCharacteristic;
-//
-//            //Toast.makeText(BuyActivity.this, characteristic.getUuid().toString() , Toast.LENGTH_LONG).show();
-//
-//            final int charaProp = characteristic.getProperties();
-//
-//            if ((charaProp | BluetoothGattCharacteristic.PROPERTY_READ) > 0) {
-//                // If there is an active notification on a characteristic, clear
-//                // it first so it doesn't update the data field on the user interface.
-//                if (characteristic != null) {
-//                    mBluetoothLeService.setCharacteristicNotification(characteristic, false);
-//                }
-//
-//                mBluetoothLeService.readCharacteristic(characteristic);
-//            }
-//
-//            if ((charaProp | BluetoothGattCharacteristic.PROPERTY_NOTIFY) > 0) {
-//                mNotifyCharacteristic = characteristic;
-//                mBluetoothLeService.setCharacteristicNotification(characteristic, true);
-//            }
-//
-//            //Already pay
-//            payButton.setEnabled(false);
-//        }
-
+        PayModeServiceIntent2.putExtra(AdvertiserService.INPUT, ADData2);
+        PayModeServiceIntent2.putExtra(AdvertiserService.DEVICE_NUM, myId);
+        startService(PayModeServiceIntent2);
     }
 
     //按下確認
     public void confirmBtnClick(View v) throws UnsupportedEncodingException {
 
-        String encodeDataToHex = bytesToHexString("Con".getBytes("utf-8"));
+        //        mHandler.postDelayed(new Runnable() { //啟動一個Handler，並使用postDelayed在10秒後自動執行此Runnable()
+//            @Override
+//            public void run() {
+//                stopService(PayModeServiceIntent);
+//                PayModeServiceIntent = new Intent(BuyActivity.this, AdvertiserTwoService.class);
+//            }
+//        }, 6000); //SCAN_TIME為 1分鐘 後要執行此Runnable
 
-        //Toast.makeText(getBaseContext(), convertHexToString(encodeDataToHex), Toast.LENGTH_SHORT).show();
-        ConfirmModeServiceIntent.putExtra(AdvertiserService.INPUT, encodeDataToHex);
-        ConfirmModeServiceIntent.putExtra(AdvertiserService.DEVICE_NUM, 6);
-        startService(ConfirmModeServiceIntent);
+        stopService(PayModeServiceIntent);
+        stopService(PayModeServiceIntent2);
+
+        String notEncodeData1 = fillInt(myId, 6) + fillInt(sellerDeviceNum, 6) + fillLong(confirmTime, 10) + fillInt(3, 2) + fillInt(1, 2);
+        String notEncodeData2 = fillInt(myId, 6) + fillInt(sellerDeviceNum, 6) + fillLong(confirmTime, 10) + fillInt(3, 2) + fillInt(2, 2);
+
+        String ADData1 = notEncodeData1 + bytesToHexString(confirmEncodeData).substring(0, 14);
+        String ADData2 = notEncodeData2 + bytesToHexString(confirmEncodeData).substring(14);
 
         //Already pay
         confirmButton.setEnabled(false);
+
+        //Toast.makeText(getBaseContext(), convertHexToString(encodeDataToHex), Toast.LENGTH_SHORT).show();
+        ConfirmModeServiceIntent.putExtra(AdvertiserService.INPUT, ADData1);
+        ConfirmModeServiceIntent.putExtra(AdvertiserService.DEVICE_NUM, myId);
+        startService(ConfirmModeServiceIntent);
+
+        ConfirmModeServiceIntent2.putExtra(AdvertiserService.INPUT, ADData2);
+        ConfirmModeServiceIntent2.putExtra(AdvertiserService.DEVICE_NUM, myId);
+        startService(ConfirmModeServiceIntent2);
     }
 
     @Override
@@ -376,9 +462,13 @@ public class BuyActivity extends AppCompatActivity {
         unregisterReceiver(mGattUpdateReceiver);
 
         stopService(ConfirmModeServiceIntent);
+        stopService(ConfirmModeServiceIntent2);
+
         //ConfirmModeServiceIntent = new Intent(BuyActivity.this, AdvertiserTwoService.class);
 
         stopService(PayModeServiceIntent);
+        stopService(PayModeServiceIntent2);
+
         //PayModeServiceIntent = new Intent(BuyActivity.this, AdvertiserTwoService.class);
     }
 
@@ -444,13 +534,19 @@ public class BuyActivity extends AppCompatActivity {
                 HashMap<String, String> currentCharaData = new HashMap<String, String>();
                 uuid = gattCharacteristic.getUuid().toString();
 
-                if ("0000aaaa-0000-1000-8000-00805f9b34fb".equals(uuid)) {
-                    mNotifyCharacteristic = gattCharacteristic;
-                }
-
                 currentCharaData.put(LIST_NAME, SampleGattAttributes.lookup(uuid, unknownCharaString));
                 currentCharaData.put(LIST_UUID, uuid);
                 gattCharacteristicGroupData.add(currentCharaData);
+
+                if ("0000aaaa-0000-1000-8000-00805f9b34fb".equals(uuid)) {
+                    mNotifyCharacteristic = gattCharacteristic;
+                    //Log.i("uuid","aaa");
+                    sendKey();
+                }else if("0000bbbb-0000-1000-8000-00805f9b34fb".equals(uuid)){
+                    mmNotifyCharacteristic = gattCharacteristic;
+                    //Log.i("uuid","bbb");
+                    sendKey();
+                }
             }
 
             mGattCharacteristics.add(charas);
@@ -550,75 +646,98 @@ public class BuyActivity extends AppCompatActivity {
                         int messageStart = manufacturerIDStart + 2;
                         String manufacturerMessage = scanMessage.substring(messageStart);
 
-                        if (manufacturerID.equals("WW")) {
-
-                            //Toast.makeText(getBaseContext(), "見證者", Toast.LENGTH_SHORT).show();
-
-                        } else if (manufacturerID.equals("CS")) {
+                        if (manufacturerID.equals("CS") || manufacturerID.equals("WW")) {
 
                             //Toast.makeText(getBaseContext(), "新CS設備", Toast.LENGTH_SHORT).show();
                             mBluetoothDevices.add(device);//如沒重複則添加到bluetoothDevices中
 
                             int hexPackageNumStart = 14;
                             int hexPackageMessageStart = 18;
-                            String packageStartMessage = bytesToHexString(scanRecord).substring(hexPackageNumStart, hexPackageNumStart + 4);
+                            //String packageStartMessage = bytesToHexString(scanRecord).substring(hexPackageNumStart, hexPackageNumStart + 4);
 
-                            int packageInt = Integer.parseInt(packageStartMessage, 16);
-                            int packageNum = packageInt % 10;
-                            int recieveDeviceNum = (packageInt - packageNum) / 10;
+                            //int packageInt = Integer.parseInt(packageStartMessage, 16);
+                            int packageNum = 0;
 
-                            manufacturerID += Integer.toString(recieveDeviceNum);
+                            //int recieveDeviceNum = (packageInt - packageNum) / 10;
+                            //manufacturerID += Integer.toString(recieveDeviceNum);
 
-                            String name = convertHexToString(bytesToHexString(scanRecord).substring(hexPackageMessageStart, hexPackageMessageStart + 14));
+                            String data = bytesToHexString(scanRecord).substring(hexPackageMessageStart, hexPackageMessageStart + 40);
 
-                            if (name.equals("reciept")){
-                                deviceName.add(name);
-                                confirmButton.setVisibility(View.VISIBLE);
+                            String payeeIdHex = data.substring(0, 6);
+                            int payeeId = Integer.parseInt(payeeIdHex, 16);
+
+                            String sellerIdHex = data.substring(6, 12);
+                            int sellerId = Integer.parseInt(sellerIdHex, 16);
+
+                            String paymentTimeHex = data.substring(12, 22);
+                            long paymentTime = Long.parseLong(paymentTimeHex, 16);
+
+                            String whichData = data.substring(22, 24);
+                            int whichDataNum = Integer.parseInt(whichData, 16);
+
+                            String oneOrTwo = data.substring(24, 26);
+                            packageNum = Integer.parseInt(oneOrTwo, 16);
+
+                            String encodeData = data.substring(26);
+
+                            Log.i("DATaaa", data);
+
+                            if(!dataToUploadList.contains(data)){
+                                dataToUploadList.add(data);
+                                store_package_number(data);
                             }
 
+                            if (payeeId == myId && sellerId == sellerDeviceNum && whichDataNum == 2) {
 
-
-                            if (packageNum == 1) {
-                                devices[recieveDeviceNum].hexMessage1 = bytesToHexString(scanRecord).substring(hexPackageMessageStart, hexPackageMessageStart + 44);
-
-                                if (devices[recieveDeviceNum].checkIfAllMessageReceive()) {
-                                    devices[recieveDeviceNum].setEncodedHex();
-                                    try {
-                                        byte[] decode1 = rsaDecode(hexStringToByteArray(devices[recieveDeviceNum].encodedHex), privateKey2);
-                                        byte[] decode2 = rsaDecode(decode1, privateKey1);
-                                        adItem.add(Integer.toString(recieveDeviceNum) + " " + new String(decode2, "UTF-8"));
-                                    } catch (UnsupportedEncodingException e) {
-                                        e.printStackTrace();
-                                    }
-                                    devices[recieveDeviceNum].cleanMessage();
+                                if (manufacturerID.equals("WW")) {
+                                    Log.i("Witness", "收到見證" + data);
+                                    witnessCount += 1;
+                                    witnessNumText.setText(Integer.toString(witnessCount));
+                                    //Toast.makeText(getBaseContext(), "見證者", Toast.LENGTH_SHORT).show();
                                 }
-                            } else if (packageNum == 2) {
-                                devices[recieveDeviceNum].hexMessage2 = bytesToHexString(scanRecord).substring(hexPackageMessageStart, hexPackageMessageStart + 44);
 
-                                if (devices[recieveDeviceNum].checkIfAllMessageReceive()) {
-                                    devices[recieveDeviceNum].setEncodedHex();
-                                    try {
-                                        byte[] decode1 = rsaDecode(hexStringToByteArray(devices[recieveDeviceNum].encodedHex), privateKey2);
-                                        byte[] decode2 = rsaDecode(decode1, privateKey1);
-                                        adItem.add(Integer.toString(recieveDeviceNum) + " " + new String(decode2, "UTF-8"));
-                                    } catch (UnsupportedEncodingException e) {
-                                        e.printStackTrace();
-                                    }
-                                    devices[recieveDeviceNum].cleanMessage();
-                                }
-                            } else if (packageNum == 3) {
-                                devices[recieveDeviceNum].hexMessage3 = bytesToHexString(scanRecord).substring(hexPackageMessageStart, hexPackageMessageStart + 40);
+                                if (packageNum == 1) {
+                                    devices[payeeId].hexMessage1 = encodeData;
 
-                                if (devices[recieveDeviceNum].checkIfAllMessageReceive()) {
-                                    devices[recieveDeviceNum].setEncodedHex();
-                                    try {
-                                        byte[] decode1 = rsaDecode(hexStringToByteArray(devices[recieveDeviceNum].encodedHex), privateKey2);
-                                        byte[] decode2 = rsaDecode(decode1, privateKey1);
-                                        adItem.add(Integer.toString(recieveDeviceNum) + " " + new String(decode2, "UTF-8"));
-                                    } catch (UnsupportedEncodingException e) {
-                                        e.printStackTrace();
+                                    if (devices[payeeId].checkIfAllMessageReceive()) {
+                                        devices[payeeId].setEncodedHex();
+                                        try {
+                                            byte[] decode1 = rsaDecode(hexStringToByteArray(devices[payeeId].encodedHex), privateKey2);
+                                            byte[] decode2 = rsaDecode(decode1, privateKey1);
+
+                                            if (!adItem.contains(bytesToHexString(decode2))) {
+                                                adItem.add(bytesToHexString(decode2));
+                                                if (checkMessage(bytesToHexString(decode2))) {
+                                                    confirmButton.setVisibility(View.VISIBLE);
+                                                }
+                                            }
+
+                                        } catch (UnsupportedEncodingException e) {
+                                            e.printStackTrace();
+                                        }
+                                        devices[payeeId].cleanMessage();
                                     }
-                                    devices[recieveDeviceNum].cleanMessage();
+                                } else if (packageNum == 2) {
+                                    devices[payeeId].hexMessage2 = encodeData;
+
+                                    if (devices[payeeId].checkIfAllMessageReceive()) {
+                                        devices[payeeId].setEncodedHex();
+                                        try {
+                                            byte[] decode1 = rsaDecode(hexStringToByteArray(devices[payeeId].encodedHex), privateKey2);
+                                            byte[] decode2 = rsaDecode(decode1, privateKey1);
+
+                                            if (!adItem.contains(bytesToHexString(decode2))) {
+                                                adItem.add(bytesToHexString(decode2));
+                                                if (checkMessage(bytesToHexString(decode2))) {
+                                                    confirmButton.setVisibility(View.VISIBLE);
+                                                }
+                                            }
+
+                                        } catch (UnsupportedEncodingException e) {
+                                            e.printStackTrace();
+                                        }
+                                        devices[payeeId].cleanMessage();
+                                    }
                                 }
                             }
                         }
@@ -632,21 +751,81 @@ public class BuyActivity extends AppCompatActivity {
         }
     };
 
+    private boolean checkMessage(String data) {
+
+        Boolean result = false;
+
+        String payeeIdHex = data.substring(0, 6);
+        int payeeId = Integer.parseInt(payeeIdHex, 16);
+
+        String sellerIdHex = data.substring(6, 12);
+        int sellerId = Integer.parseInt(sellerIdHex, 16);
+
+        String paymentTimeHex = data.substring(12, 22);
+        long paymentTime = Long.parseLong(paymentTimeHex, 16);
+
+        String money = data.substring(22);
+        int moneyNum = Integer.parseInt(money, 16);
+
+        if (payeeId == myId) {
+            result = true;
+        }
+
+        return result;
+    }
+
     //////////////////////////////////// //掃描
+
+    public void store_package_number(String Package){
+        //這裡的packge需為明碼和加密一起傳進來,共20bytes;
+        SharedPreferences spref = getSharedPreferences(
+                "dada", Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor = spref.edit();
+        editor.putString(spref.getString("countid",null),Package);
+        int temp=spref.getInt("countpackage",0)+1;
+        editor.commit();
+        editor.putString("countid",Integer.toString(temp));
+        editor.putInt("countpackage",temp);
+        editor.commit();
+    }
+
+    public String fillInt(int uncode, int number) {
+        String encode = null;
+        encode = Integer.toHexString(uncode);
+        while (encode.length() < number) {
+            encode = "0" + encode;
+        }
+        return encode;
+    }
+
+    public String fillLong(long uncode, int number) {
+        String encode = null;
+        encode = Long.toHexString(uncode);
+        while (encode.length() < number) {
+            encode = "0" + encode;
+        }
+        return encode;
+    }
 
     public KeyPair LoadKeyPair1(String algorithm) throws IOException, NoSuchAlgorithmException, InvalidKeySpecException {
 
-        InputStream publicFis = getAssets().open("public.key");
-        int publicSize = publicFis.available();
-        byte[] encodedPublicKey = new byte[publicSize];
-        publicFis.read(encodedPublicKey);
-        publicFis.close();
+//        InputStream publicFis = getAssets().open("public.key");
+//        int publicSize = publicFis.available();
+//        byte[] encodedPublicKey = new byte[publicSize];
+//        publicFis.read(encodedPublicKey);
+//        publicFis.close();
+//
+//        InputStream privateFis = getAssets().open("private.key");
+//        int privateSize = privateFis.available();
+//        byte[] encodedPrivateKey = new byte[privateSize];
+//        privateFis.read(encodedPrivateKey);
+//        privateFis.close();
 
-        InputStream privateFis = getAssets().open("private.key");
-        int privateSize = privateFis.available();
-        byte[] encodedPrivateKey = new byte[privateSize];
-        privateFis.read(encodedPrivateKey);
-        privateFis.close();
+        String publicString = "302a300d06092a864886f70d01010105000319003016020f00a461c31e6f8aa88b58c0e6d353730203010001";
+        byte[] encodedPublicKey = hexStringToByteArray(publicString);
+
+        String privateString = "306f020100300d06092a864886f70d0101010500045b3059020100020f00a461c31e6f8aa88b58c0e6d353730203010001020e411c22037faddd323462157d3b1d020800e3aa174ea7cde5020800b8d7584a0e4677020749ea8992b20cb902073a5c23901e39b9020800b8f10b432910e6";
+        byte[] encodedPrivateKey = hexStringToByteArray(privateString);
 
         // Generate KeyPair.
         KeyFactory keyFactory = KeyFactory.getInstance(algorithm);
@@ -661,17 +840,23 @@ public class BuyActivity extends AppCompatActivity {
 
     public KeyPair LoadKeyPair2(String algorithm) throws IOException, NoSuchAlgorithmException, InvalidKeySpecException {
 
-        InputStream publicFis = getAssets().open("public2.key");
-        int publicSize = publicFis.available();
-        byte[] encodedPublicKey = new byte[publicSize];
-        publicFis.read(encodedPublicKey);
-        publicFis.close();
+//        InputStream publicFis = getAssets().open("public2.key");
+//        int publicSize = publicFis.available();
+//        byte[] encodedPublicKey = new byte[publicSize];
+//        publicFis.read(encodedPublicKey);
+//        publicFis.close();
+//
+//        InputStream privateFis = getAssets().open("private2.key");
+//        int privateSize = privateFis.available();
+//        byte[] encodedPrivateKey = new byte[privateSize];
+//        privateFis.read(encodedPrivateKey);
+//        privateFis.close();
 
-        InputStream privateFis = getAssets().open("private2.key");
-        int privateSize = privateFis.available();
-        byte[] encodedPrivateKey = new byte[privateSize];
-        privateFis.read(encodedPrivateKey);
-        privateFis.close();
+        String publicString = "302a300d06092a864886f70d01010105000319003016020f00a461c31e6f8aa88b58c0e6d353730203010001";
+        byte[] encodedPublicKey = hexStringToByteArray(publicString);
+
+        String privateString = "306f020100300d06092a864886f70d0101010500045b3059020100020f00a461c31e6f8aa88b58c0e6d353730203010001020e411c22037faddd323462157d3b1d020800e3aa174ea7cde5020800b8d7584a0e4677020749ea8992b20cb902073a5c23901e39b9020800b8f10b432910e6";
+        byte[] encodedPrivateKey = hexStringToByteArray(privateString);
 
         // Generate KeyPair.
         KeyFactory keyFactory = KeyFactory.getInstance(algorithm);

@@ -58,7 +58,12 @@
             android:enabled="true"
             android:exported="true" />
 
-        <activity android:name=".register"></activity>
+        <activity android:name=".register" />
+
+        <service
+            android:name=".WitnessAdvertiserServiceTwo"
+            android:enabled="true"
+            android:exported="true" />
     </application>
 
 </manifest>

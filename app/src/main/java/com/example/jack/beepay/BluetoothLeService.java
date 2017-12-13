@@ -120,7 +120,7 @@ public class BluetoothLeService extends Service {
             Log.d(TAG, String.format("Received heart rate: %d", heartRate));
             intent.putExtra(EXTRA_DATA, String.valueOf(heartRate));
         } else if ("00002a29-0000-1000-8000-00805f9b34fb".equals(characteristic.getUuid().toString())) {
-            intent.putExtra(EXTRA_DATA, "hello");
+            intent.putExtra(EXTRA_DATA, "yaaaaa");
         } else {
             // For all other profiles, writes the data formatted in HEX.
             final byte[] data = characteristic.getValue();
@@ -264,7 +264,7 @@ public class BluetoothLeService extends Service {
 
         if ("0000aaaa-0000-1000-8000-00805f9b34fb".equals(characteristic.getUuid().toString())) {
 
-            Log.i("GetKey","aa");
+            //Log.i("GetKey","aa");
 
             SharedPreferences spref = getSharedPreferences("dada", Context.MODE_PRIVATE);
             String myPriv2 = spref.getString("priv2", null);
@@ -274,13 +274,14 @@ public class BluetoothLeService extends Service {
 
         }else if("0000bbbb-0000-1000-8000-00805f9b34fb".equals(characteristic.getUuid().toString())){
 
-            Log.i("GetKey","bb");
+            //Log.i("GetKey","bb");
 
             SharedPreferences spref = getSharedPreferences("dada", Context.MODE_PRIVATE);
             String myPub1 = spref.getString("pub1", null);
             characteristic.setValue(myPub1);
             mBluetoothGatt.writeCharacteristic(characteristic);
             //setCharacteristicNotification(characteristic,true);
+
         } else {
             mBluetoothGatt.readCharacteristic(characteristic);
         }

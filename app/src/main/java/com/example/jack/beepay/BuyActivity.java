@@ -69,6 +69,8 @@ public class BuyActivity extends AppCompatActivity {
     private ArrayList<String> dataToUploadList;
 
     private Button payButton;
+    private Button privButton;
+    private Button pubButton;
     private Button confirmButton;
 
     private TextView witnessNumText;
@@ -142,7 +144,7 @@ public class BuyActivity extends AppCompatActivity {
 
         sellerDeviceNum = intent.getIntExtra(DEVICE_NUM, 0);
         SharedPreferences spref = getSharedPreferences("dada", Context.MODE_PRIVATE);
-        myId = Integer.parseInt(spref.getString("id", null));
+        myId = Integer.parseInt(spref.getString("id", "0"));
 
         Log.i("SellerNum", Integer.toString(sellerDeviceNum));
 
@@ -160,6 +162,13 @@ public class BuyActivity extends AppCompatActivity {
 
         confirmButton = (Button) findViewById(R.id.ConfirmButtonID);
         confirmButton.setVisibility(View.INVISIBLE);
+
+        //privButton = (Button) findViewById(R.id.PrivButton);
+        //privButton.setVisibility(View.INVISIBLE);
+
+        //pubButton = (Button) findViewById(R.id.PubButton);
+        //pubButton.setVisibility(View.INVISIBLE);
+
 
         Intent gattServiceIntent = new Intent(this, BluetoothLeService.class);
         bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
@@ -262,12 +271,14 @@ public class BuyActivity extends AppCompatActivity {
                 mConnected = true;
                 //Show pay button
                 payButton.setVisibility(View.VISIBLE);
+                //pubButton.setVisibility(View.VISIBLE);
+                //privButton.setVisibility(View.VISIBLE);
                 updateConnectionState(R.string.connected);
                 //invalidateOptionsMenu();
             } else if (BluetoothLeService.ACTION_GATT_DISCONNECTED.equals(action)) {
                 mConnected = false;
                 //Hide pay button
-                payButton.setEnabled(false);
+                //payButton.setEnabled(false);
                 updateConnectionState(R.string.disconnected);
                 //invalidateOptionsMenu();
                 clearUI();
@@ -318,6 +329,56 @@ public class BuyActivity extends AppCompatActivity {
             };
 
     private void sendKey() {
+
+//        mHandler.postDelayed(new Runnable() { //啟動一個Handler，並使用postDelayed在10秒後自動執行此Runnable()
+//            @Override
+//            public void run() {
+//                if (mmNotifyCharacteristic != null) {
+//                    final BluetoothGattCharacteristic characteristic = mmNotifyCharacteristic;
+//                    //Toast.makeText(BuyActivity.this, characteristic.getUuid().toString() , Toast.LENGTH_LONG).show();
+//                    final int charaProp = characteristic.getProperties();
+//                    if ((charaProp | BluetoothGattCharacteristic.PROPERTY_READ) > 0) {
+//                        // If there is an active notification on a characteristic, clear
+//                        // it first so it doesn't update the data field on the user interface.
+//                        if (characteristic != null) {
+//                            mBluetoothLeService.setCharacteristicNotification(characteristic, false);
+//                        }
+//                        mBluetoothLeService.readCharacteristic(characteristic);
+//                    }
+//                    if ((charaProp | BluetoothGattCharacteristic.PROPERTY_NOTIFY) > 0) {
+//                        mmNotifyCharacteristic = characteristic;
+//                        mBluetoothLeService.setCharacteristicNotification(characteristic, true);
+//                    }
+//
+//                    //Show pay button
+//                    payButton.setVisibility(View.VISIBLE);
+//
+////                   mmNotifyCharacteristic = null;
+//                }
+//            }
+//        }, 3000); //SCAN_TIME為 1分鐘 後要執行此Runnable
+//
+//        if (mNotifyCharacteristic != null) {
+//            final BluetoothGattCharacteristic characteristic = mNotifyCharacteristic;
+//            //Toast.makeText(BuyActivity.this, characteristic.getUuid().toString() , Toast.LENGTH_LONG).show();
+//            final int charaProp = characteristic.getProperties();
+//            if ((charaProp | BluetoothGattCharacteristic.PROPERTY_READ) > 0) {
+//                // If there is an active notification on a characteristic, clear
+//                // it first so it doesn't update the data field on the user interface.
+//                if (characteristic != null) {
+//                    mBluetoothLeService.setCharacteristicNotification(characteristic, false);
+//                }
+//                mBluetoothLeService.readCharacteristic(characteristic);
+//            }
+//            if ((charaProp | BluetoothGattCharacteristic.PROPERTY_NOTIFY) > 0) {
+//                mNotifyCharacteristic = characteristic;
+//                mBluetoothLeService.setCharacteristicNotification(characteristic, true);
+//            }
+////            mNotifyCharacteristic = null;
+//        }
+    }
+
+    public void priBtnClick(View v){
         if (mNotifyCharacteristic != null) {
             final BluetoothGattCharacteristic characteristic = mNotifyCharacteristic;
             //Toast.makeText(BuyActivity.this, characteristic.getUuid().toString() , Toast.LENGTH_LONG).show();
@@ -334,9 +395,12 @@ public class BuyActivity extends AppCompatActivity {
                 mNotifyCharacteristic = characteristic;
                 mBluetoothLeService.setCharacteristicNotification(characteristic, true);
             }
+//            mNotifyCharacteristic = null;
+        }
+    }
 
-            mNotifyCharacteristic = null;
-        }else if (mmNotifyCharacteristic != null) {
+    public void pubBtnClick(View v){
+        if (mmNotifyCharacteristic != null) {
             final BluetoothGattCharacteristic characteristic = mmNotifyCharacteristic;
             //Toast.makeText(BuyActivity.this, characteristic.getUuid().toString() , Toast.LENGTH_LONG).show();
             final int charaProp = characteristic.getProperties();
@@ -353,7 +417,10 @@ public class BuyActivity extends AppCompatActivity {
                 mBluetoothLeService.setCharacteristicNotification(characteristic, true);
             }
 
-            mmNotifyCharacteristic = null;
+            //Show pay button
+            payButton.setVisibility(View.VISIBLE);
+
+//                   mmNotifyCharacteristic = null;
         }
     }
 
@@ -401,6 +468,9 @@ public class BuyActivity extends AppCompatActivity {
         PayModeServiceIntent2.putExtra(AdvertiserService.INPUT, ADData2);
         PayModeServiceIntent2.putExtra(AdvertiserService.DEVICE_NUM, myId);
         startService(PayModeServiceIntent2);
+
+        String show =  "付錢明碼：" + notEncodeData1 + "\n" + "付錢加密：" + bytesToHexString(encodeData2);
+        Toast.makeText(getBaseContext(), show, Toast.LENGTH_LONG).show();
     }
 
     //按下確認
@@ -434,6 +504,9 @@ public class BuyActivity extends AppCompatActivity {
         ConfirmModeServiceIntent2.putExtra(AdvertiserService.INPUT, ADData2);
         ConfirmModeServiceIntent2.putExtra(AdvertiserService.DEVICE_NUM, myId);
         startService(ConfirmModeServiceIntent2);
+
+        String show =  "確認明碼：" + notEncodeData1 + "\n" + "確認加密：" + bytesToHexString(confirmEncodeData);
+        Toast.makeText(getBaseContext(), show, Toast.LENGTH_LONG).show();
     }
 
     @Override
@@ -541,8 +614,7 @@ public class BuyActivity extends AppCompatActivity {
                 if ("0000aaaa-0000-1000-8000-00805f9b34fb".equals(uuid)) {
                     mNotifyCharacteristic = gattCharacteristic;
                     //Log.i("uuid","aaa");
-                    sendKey();
-                }else if("0000bbbb-0000-1000-8000-00805f9b34fb".equals(uuid)){
+                } else if ("0000bbbb-0000-1000-8000-00805f9b34fb".equals(uuid)) {
                     mmNotifyCharacteristic = gattCharacteristic;
                     //Log.i("uuid","bbb");
                     sendKey();
@@ -682,7 +754,7 @@ public class BuyActivity extends AppCompatActivity {
 
                             Log.i("DATaaa", data);
 
-                            if(!dataToUploadList.contains(data)){
+                            if (!dataToUploadList.contains(data)) {
                                 dataToUploadList.add(data);
                                 store_package_number(data);
                             }
@@ -691,8 +763,12 @@ public class BuyActivity extends AppCompatActivity {
 
                                 if (manufacturerID.equals("WW")) {
                                     Log.i("Witness", "收到見證" + data);
-                                    witnessCount += 1;
-                                    witnessNumText.setText(Integer.toString(witnessCount));
+
+                                    if (payeeId == myId && sellerId == sellerDeviceNum) {
+                                        witnessCount += 1;
+                                        witnessNumText.setText(Integer.toString(witnessCount));
+                                    }
+
                                     //Toast.makeText(getBaseContext(), "見證者", Toast.LENGTH_SHORT).show();
                                 }
 
@@ -709,6 +785,8 @@ public class BuyActivity extends AppCompatActivity {
                                                 adItem.add(bytesToHexString(decode2));
                                                 if (checkMessage(bytesToHexString(decode2))) {
                                                     confirmButton.setVisibility(View.VISIBLE);
+                                                    String show =  "收據：" + bytesToHexString(decode2);
+                                                    Toast.makeText(getBaseContext(), show, Toast.LENGTH_LONG).show();
                                                 }
                                             }
 
@@ -730,6 +808,8 @@ public class BuyActivity extends AppCompatActivity {
                                                 adItem.add(bytesToHexString(decode2));
                                                 if (checkMessage(bytesToHexString(decode2))) {
                                                     confirmButton.setVisibility(View.VISIBLE);
+                                                    String show =  "收據：" + bytesToHexString(decode2);
+                                                    Toast.makeText(getBaseContext(), show, Toast.LENGTH_SHORT).show();
                                                 }
                                             }
 
@@ -767,7 +847,7 @@ public class BuyActivity extends AppCompatActivity {
         String money = data.substring(22);
         int moneyNum = Integer.parseInt(money, 16);
 
-        if (payeeId == myId) {
+        if (payeeId == myId && sellerId == sellerDeviceNum) {
             result = true;
         }
 
@@ -776,16 +856,16 @@ public class BuyActivity extends AppCompatActivity {
 
     //////////////////////////////////// //掃描
 
-    public void store_package_number(String Package){
+    public void store_package_number(String Package) {
         //這裡的packge需為明碼和加密一起傳進來,共20bytes;
         SharedPreferences spref = getSharedPreferences(
                 "dada", Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = spref.edit();
-        editor.putString(spref.getString("countid",null),Package);
-        int temp=spref.getInt("countpackage",0)+1;
+        editor.putString(spref.getString("countid", null), Package);
+        int temp = spref.getInt("countpackage", 0) + 1;
         editor.commit();
-        editor.putString("countid",Integer.toString(temp));
-        editor.putInt("countpackage",temp);
+        editor.putString("countid", Integer.toString(temp));
+        editor.putInt("countpackage", temp);
         editor.commit();
     }
 

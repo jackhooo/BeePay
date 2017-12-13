@@ -225,7 +225,8 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
         mViewFlipper = (ViewFlipper) this.findViewById(R.id.view_flipper);
 
         SharedPreferences spref = getSharedPreferences("dada", Context.MODE_PRIVATE);
-        myId = Integer.parseInt(spref.getString("id", null));
+        myId = Integer.parseInt(spref.getString("id", "0"));
+
         otherId = 0;
 
         WitnessServiceIntent = new Intent(MainActivity.this, WitnessAdvertiserService.class);
@@ -238,6 +239,10 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
         // Register mMessageReceiver to receive messages.
         LocalBroadcastManager.getInstance(this).registerReceiver(mMessageReceiver,
                 new IntentFilter("my-event"));
+
+        // Register mMessageReceiver to receive messages.
+        LocalBroadcastManager.getInstance(this).registerReceiver(mPubMessageReceiver,
+                new IntentFilter("event"));
 
         try {
             KeyPair loadedKeyPair1 = LoadKeyPair1("RSA");
@@ -256,27 +261,31 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
     private BroadcastReceiver mMessageReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            Log.i("GetKey", intent.getStringExtra("key"));
 
-            if(intent.getStringExtra("key") != ""){
-                othersPriv2 += intent.getStringExtra("key");
-                //Log.i("GetKey", "vv");
+            if(intent.getStringExtra("key") != null){
+                Log.i("GetKey", "priv" + intent.getStringExtra("key"));
+                //othersPriv2 += intent.getStringExtra("key");
+                if(othersPriv2.length() > 220){
+                    Log.i("GetKey", "priv" + othersPriv2);
+                }
+                othersPriv2 = "";
             }
+        }
+    };
 
-            if(intent.getStringExtra("pub") != ""){
+    // handler for received Intents for the "my-event" event
+    private BroadcastReceiver mPubMessageReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+
+            if(intent.getStringExtra("pub") != null){
+                Log.i("GetKey", "pub" + intent.getStringExtra("pub"));
                 othersPub1 += intent.getStringExtra("pub");
-                //Log.i("GetKey", "pp");
+                if(othersPub1.length() == 88){
+                    Log.i("GetKey","pub" + othersPub1);
+                }
+                othersPub1 = "";
             }
-
-//            if(keymessage.length() < 308){
-//                keymessage += intent.getStringExtra("key");
-//            }else{
-//                othersPub1 = keymessage.substring(0,88);
-//                othersPriv2 = keymessage.substring(88);
-//                Log.i("GetKey", othersPub1);
-//                Log.i("GetKey", othersPriv2);
-//            }
-            //Toast.makeText(MainActivity.this, intent.getStringExtra("amount"), Toast.LENGTH_LONG).show();
         }
     };
 
@@ -494,6 +503,8 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
                                                     confirmMessage.add(bytesToHexString(decode2));
                                                     confirm.add("確認交易" + Integer.toString(payeeId) + " " + Long.toString(paymentTime));
                                                     Log.i("Confirm", bytesToHexString(decode2));
+                                                    String show =  "確認：" + bytesToHexString(decode2);
+                                                    Toast.makeText(getBaseContext(), show, Toast.LENGTH_LONG).show();
                                                 }
                                             }
 
@@ -520,6 +531,8 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
                                                     confirmMessage.add(bytesToHexString(decode2));
                                                     confirm.add("確認交易" + Integer.toString(payeeId) + " " + Long.toString(paymentTime));
                                                     Log.i("Confirm", bytesToHexString(decode2));
+                                                    String show =  "確認：" + bytesToHexString(decode2);
+                                                    Toast.makeText(getBaseContext(), show, Toast.LENGTH_LONG).show();
                                                 }
                                             }
 
@@ -683,6 +696,9 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
             RecieptModeServiceIntent2.putExtra(AdvertiserService.DEVICE_NUM, myId);
             startService(RecieptModeServiceIntent2);
 
+            String show =  "收據明碼：" + notEncodeData1 + "\n" + "收據加密：" + bytesToHexString(encodeData2);
+            Toast.makeText(getBaseContext(), show, Toast.LENGTH_LONG).show();
+
         }
     }
 
@@ -774,6 +790,12 @@ public class MainActivity extends AppCompatActivity implements ProfileFragment.O
                 if (mViewFlipper.getCurrentView().getId() == R.id.shop) {
                     mViewFlipper.showPrevious();
                 }
+
+                stopService(RecieptModeServiceIntent);
+                stopService(RecieptModeServiceIntent2);
+                //stopService(ShopModeServiceIntent);
+                stopService(WitnessServiceIntent);
+                stopService(WitnessServiceIntent2);
 
                 stopService(ShopModeServiceIntent);
                 ShopModeServiceIntent = new Intent(MainActivity.this, AdvertiserService.class);

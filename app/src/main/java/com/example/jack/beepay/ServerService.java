@@ -40,6 +40,8 @@ public class ServerService extends Service {
     private static int NOTIFICATION_ID = 0;
 
 
+    String address = "0";
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -128,15 +130,15 @@ public class ServerService extends Service {
         Intent intent = new Intent("my-event");
         // add data
         intent.putExtra("key", message);
-        intent.putExtra("pub", "");
+        //intent.putExtra("pub", "");
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
     }
 
     // Send an Intent with an action named "my-event".
     private void sendPubMessage(String message) {
-        Intent intent = new Intent("my-event");
+        Intent intent = new Intent("event");
         // add data
-        intent.putExtra("key", "");
+        //intent.putExtra("key", "");
         intent.putExtra("pub", message);
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
     }
@@ -146,7 +148,7 @@ public class ServerService extends Service {
         public void onConnectionStateChange(BluetoothDevice device, int status, int newState) {
             super.onConnectionStateChange(device, status, newState);
             if(newState == BluetoothProfile.STATE_CONNECTED) {
-                sendNotification("Client connected");
+                sendNotification("Client connected: " + device.getAddress());
             }
             else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 sendNotification("Client disconnected");
@@ -171,15 +173,16 @@ public class ServerService extends Service {
             super.onCharacteristicWriteRequest(device, requestId, characteristic, preparedWrite, responseNeeded, offset, value);
             byte[] bytes = value;
             String message = new String(bytes);
+
             if(CHAR_UUID_YOU_CAN_CHANGE.equals(characteristic.getUuid().toString())){
-                Log.i("GetKey", "aaaa");
+                //Log.i("GetKey", "aaaa");
                 sendMessage(message);
             }else if(CHAR2_UUID_YOU_CAN_CHANGE.equals(characteristic.getUuid().toString())){
-                Log.i("GetKey", "bbbb");
+                //Log.i("GetKey", "bbbb");
                 sendPubMessage(message);
             }
 
-            sendNotification(message);
+            //sendNotification(message);
             gattServer.sendResponse(device, requestId, 0, offset, value);
         }
 
@@ -230,6 +233,11 @@ public class ServerService extends Service {
                 UUID.fromString(SERVICE_UUID_YOU_CAN_CHANGE),
                 BluetoothGattService.SERVICE_TYPE_PRIMARY);
 
+        //SharedPreferences spref = getSharedPreferences("dada", Context.MODE_PRIVATE);
+        //String myPub1 = spref.getString("pub1", null);
+        //String myPriv2 = spref.getString("priv2", null);
+
+
         //characteristicUUIDを設定
         BluetoothGattCharacteristic characteristic = new BluetoothGattCharacteristic(
                 UUID.fromString(CHAR_UUID_YOU_CAN_CHANGE),
@@ -248,7 +256,7 @@ public class ServerService extends Service {
                 BluetoothGattCharacteristic.PERMISSION_READ |
                         BluetoothGattCharacteristic.PERMISSION_WRITE);
 
-        characteristic2.setValue("");
+        characteristic2.setValue("hiiii");
 
         //characteristicUUIDをserviceUUIDにのせる
         service.addCharacteristic(characteristic);
